@@ -1,7 +1,7 @@
 {
   "name": "memo",
   "short_name": "memo",
-  "start_url": "https://ayatocraft.github.io/memo/index.html",
+  "start_url": "index.html",
   "display_override": [
     "tabbed",
     "standalone"
