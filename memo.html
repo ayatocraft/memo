@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メモの編集</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="memoEditor">
+        <input type="text" id="memoTitle" placeholder="メモのタイトル">
+        <div class="editor-toolbar">
+            <button id="homeBtn">ホームに戻る</button>
+            <button id="addLinkBtn">リンクを追加</button>
+            <button id="addImageBtn">画像を追加</button>
+        </div>
+        <div id="memoBody" contenteditable="true" spellcheck="false" placeholder="ここに内容を入力..."></div>
+        <div class="actions">
+            <button id="saveBtn">保存</button>
+            <button id="archiveBtn">アーカイブ</button>
+            <button id="deleteBtn">削除</button>
+        </div>
+    </div>
+    <input type="file" id="imageInput" accept="image/*" class="hidden">
+    <script src="app.js"></script>
+</body>
+</html>
