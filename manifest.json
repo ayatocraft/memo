@@ -2,7 +2,7 @@
   "name": "Memo App",
   "short_name": "MemoApp",
   "description": "A full-featured, tab-aware memo PWA.",
-  "start_url": "/index.html",
+  "start_url": "/home.html",
   "display_override": [
     "tabbed",
     "standalone"
