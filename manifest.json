@@ -1,23 +1,17 @@
 {
-  "name": "memo",
-  "short_name": "memo",
-  "start_url": "index.html",
+  "name": "Memo App",
+  "short_name": "MemoApp",
+  "description": "A full-featured, tab-aware memo PWA.",
+  "start_url": "/index.html",
   "display_override": [
     "tabbed",
     "standalone"
+  ],
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "theme_color": "#007aff",
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
