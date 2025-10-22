@@ -23,7 +23,8 @@
       "url": "./home.html"
     },
     "new_tab_button": {
-      "url": "./home.html"
+      "url": "./home.html",
+      "title": "New Tab"
     }
   }
 }
