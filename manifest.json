@@ -1,7 +1,7 @@
 {
   "name": "Memo",
   "short_name": "Memo",
-  "start_url": "./index.html",
+  "start_url": "./home.html",
   "display": "standalone",
   "display_override": ["tabbed", "standalone"],
   "background_color": "white",
@@ -23,7 +23,7 @@
       "url": "./home.html"
     },
     "new_tab_button": {
-      "url": "./index.html"
+      "url": "./home.html"
     }
   }
 }
