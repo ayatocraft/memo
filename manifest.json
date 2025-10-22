@@ -6,7 +6,7 @@
   ],
   "start_url": "./index.html",
   "scope": "./",
-  "theme_color": "#ffffff",
+  "theme_color": "#87CEFA",
   "background_color": "#ffffff",
   "display": "standalone",
   "display_override": ["tabbed"],
