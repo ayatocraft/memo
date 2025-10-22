@@ -1,16 +1,16 @@
 {
   "name": "Memo",
-"icons": [
+  "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
   ],
-  "start_url": "/index.html",
+  "start_url": "./index.html",
+  "scope": "./",
   "theme_color": "#FFFFFF",
   "background_color": "white",
   "display": "standalone",
   "display_override": ["tabbed"],
   "new_tab_button": {
-      "url": "home.html"
-    }
+    "url": "./home.html"
   }
-
+}
