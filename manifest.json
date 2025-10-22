@@ -17,7 +17,6 @@
     "client_mode": "navigate-existing"
   },
 
-  "tab_strip": {
     "new_tab_button": {
       "url": "./home.html",
       "title": "New Tab"
