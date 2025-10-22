@@ -12,9 +12,5 @@
   "display_override": ["tabbed"],
   "new_tab_button": {
     "url": "./home.html"
-  },
-  "dark_mode": {
-    "theme_color": "lightskyblue",
-    "background_color": "#000000"
   }
 }
