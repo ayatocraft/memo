@@ -15,12 +15,5 @@
 
   "launch_handler": {
     "client_mode": "navigate-existing"
-  },
-
-    "new_tab_button": {
-      "url": "./home.html",
-      "title": "New Tab"
-    }
   }
 }
-
