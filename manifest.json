@@ -7,7 +7,7 @@
   "start_url": "./index.html",
   "scope": "./",
   "theme_color": "#ffffff",
-  "background_color": "#87CEFA",
+  "background_color": "#E8EAF6",
   "display": "standalone",
   "display_override": ["tabbed"],
   "new_tab_button": {
