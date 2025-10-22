@@ -1,16 +1,37 @@
 {
   "name": "Memo",
-  "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
-  ],
-  "start_url": "./index.html",
-  "scope": "./",
-  "theme_color": "#FFFFFF",
-  "background_color": "#87CEFA",
+  "short_name": "Memo",
+  "start_url": "./home.html",
   "display": "standalone",
-  "display_override": ["tabbed"],
-  "new_tab_button": {
-    "url": "./home.html"
+  "display_override": ["tabbed", "standalone"],
+  "background_color": "white",
+  "theme_color": "LightSkyBlue",
+  "scope": "./",
+  "description": "LightSkyBlueのタブバーと固定タブを持つPWAメモアプリ",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+
+  "tab_strip": {
+    "home_tab": {
+      "title": "Home",
+      "url": "./home.html"
+    },
+    "new_tab_button": {
+      "url": "./home.html"
+    }
   }
 }
