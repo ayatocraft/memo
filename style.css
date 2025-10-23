@@ -1,7 +1,7 @@
 :root {
     --primary-color: #007aff;
     --sidebar-bg: #f5f5f7;
-    --content-bg: #fafafa; /* ←ここを変更しました */
+    --content-bg: #87CEFA; /* ←ここを変更しました */
     --border-color: #d1d1d6;
     --text-color: #1d1d1f;
     --secondary-text-color: #6e6e73;
