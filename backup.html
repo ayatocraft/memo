@@ -1,225 +1,184 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>バックアップ - Memo</title>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script src="https://cdn.ably.io/lib/ably.min-1.js"></script>
-<style>
-body {
-  font-family: "Segoe UI","Helvetica Neue",sans-serif;
-  margin:0; padding:20px;
-  background:#f3f3f3;
-  display:flex; justify-content:center;
-  min-height:100vh;
-}
-.card {
-  background:#fff; border-radius:10px;
-  padding:20px; max-width:720px; width:100%;
-  box-shadow:0 4px 10px rgba(0,0,0,0.1);
-}
-h1 { text-align:center; color:#0078D4; }
-.mode-select { display:flex; justify-content:center; gap:20px; margin:20px 0; }
-button {
-  padding:10px 16px;
-  border:none;
-  border-radius:5px;
-  background:#0078D4;
-  color:white;
-  cursor:pointer;
-  font-size:15px;
-}
-button:hover { background:#005a9e; }
-.hidden { display:none; }
-#status { background:#eee; padding:10px; margin-top:10px; max-height:200px; overflow-y:auto; font-size:14px; }
-input[type=text], input[type=file] { width:100%; padding:8px; margin:6px 0; border-radius:3px; border:1px solid #ccc; }
-progress { width:100%; height:16px; margin:4px 0; }
-.file-link, .load-btn {
-  display:inline-block; margin-top:6px;
-  background:#107c10; color:white; text-decoration:none;
-  padding:4px 8px; border-radius:4px; font-size:13px;
-}
-.load-btn { background:#0078D4; cursor:pointer; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>バックアップ - メモアプリ</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="card">
-  <h1>💾 バックアップ</h1>
-  <div class="mode-select">
-    <button onclick="showMode('send')">📤 作成（送信）</button>
-    <button onclick="showMode('receive')">📥 読み込み（受信）</button>
-  </div>
+    <div class="backup-container">
+        <h1>💾 バックアップと復元（オンライン対応）</h1>
+        <p>別のデバイスへバックアップを送信・受信できます。</p>
 
-  <!-- 送信モード -->
-  <div id="send-mode" class="mode hidden">
-    <h2>バックアップ作成</h2>
-    <p>現在のメモデータをバックアップファイル（.jsonまたは.dat）として保存し、Peer送信できます。</p>
-    <label>形式選択：
-      <select id="formatSelect">
-        <option value="json">JSON</option>
-        <option value="dat">DAT</option>
-      </select>
-    </label>
-    <button id="createBackupBtn">📄 バックアップを作成</button>
-    <div id="backupResult"></div>
-    <hr>
-    <h3>Peerで送信</h3>
-    <div id="my-id"><span>生成中...</span> <button id="copyId">コピー</button></div>
-    <input type="text" id="connect-id" placeholder="相手のPeerIDを入力">
-    <button id="sendBackupBtn">送信</button>
-  </div>
+        <div class="mode-switch">
+            <button id="sendModeBtn" class="active">📤 送信モード</button>
+            <button id="receiveModeBtn">📥 受信モード</button>
+        </div>
 
-  <!-- 受信モード -->
-  <div id="receive-mode" class="mode hidden">
-    <h2>バックアップ読み込み</h2>
-    <p>相手が送信したバックアップを受信するか、ファイルを選択して読み込みます。</p>
-    <div id="my-id-recv"><span>生成中...</span> <button id="copyRecvId">コピー</button></div>
-    <input type="file" id="localFileInput" accept=".json,.dat">
-    <button id="loadLocalBtn">📂 ファイルから読み込む</button>
-    <div id="recvList"></div>
-  </div>
+        <!-- 送信モード -->
+        <div id="sendMode" class="mode active">
+            <h3>あなたの接続ID</h3>
+            <p id="peerIdDisplay">生成中...</p>
+            <button id="createBackupBtn">バックアップを作成して送信開始</button>
+            <p id="sendStatus"></p>
+        </div>
 
-  <div id="status"></div>
-</div>
+        <!-- 受信モード -->
+        <div id="receiveMode" class="mode">
+            <h3>送信側のIDを入力</h3>
+            <input type="text" id="peerIdInput" placeholder="例: abc123">
+            <button id="connectBtn">接続して受信</button>
 
-<script>
-let peer, conn, latestBackupBlob=null, latestBackupName="";
-let ably = new Ably.Realtime('MwTA8A.xOgfaQ:hHOaQc-N5UpMmsueZflvvdfjHhHHDJi7x6plgKd5c-Y');
-let channel = ably.channels.get('memo-backup');
+            <h4>またはローカルファイルを選択</h4>
+            <input type="file" id="localFileInput" accept=".dat,.json">
+            <button id="loadLocalBackupBtn">このファイルを読み込む</button>
 
-function appendLog(msg){
-  const box=document.getElementById('status');
-  const div=document.createElement('div');
-  div.textContent=msg;
-  box.appendChild(div);
-  box.scrollTop=box.scrollHeight;
-}
+            <p id="receiveStatus"></p>
+        </div>
 
-// モード切替
-function showMode(mode){
-  document.querySelectorAll('.mode').forEach(m=>m.classList.add('hidden'));
-  document.getElementById(mode+'-mode').classList.remove('hidden');
-  appendLog('🔁 モード切替: '+(mode==='send'?'送信モード':'受信モード'));
-  if(mode==='receive') initPeer('recv');
-  if(mode==='send') initPeer('send');
-}
+        <button onclick="location.href='home.html'" class="back-btn">🏠 ホームに戻る</button>
+    </div>
 
-// Peer初期化
-function initPeer(type){
-  peer = new Peer({ config:{ iceServers:[{urls:"stun:stun.l.google.com:19302"}] } });
-  peer.on('open', id=>{
-    if(type==='send') document.querySelector('#my-id span').textContent=id;
-    else document.querySelector('#my-id-recv span').textContent=id;
-    appendLog('🟢 Peer起動: '+id);
-    channel.publish('peer-ready', {id});
-  });
-  peer.on('connection', c=>{
-    conn=c;
-    setupConn(type);
-  });
-}
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        const sendModeBtn = document.getElementById('sendModeBtn');
+        const receiveModeBtn = document.getElementById('receiveModeBtn');
+        const sendMode = document.getElementById('sendMode');
+        const receiveMode = document.getElementById('receiveMode');
+        const peerIdDisplay = document.getElementById('peerIdDisplay');
+        const sendStatus = document.getElementById('sendStatus');
+        const receiveStatus = document.getElementById('receiveStatus');
 
-// コネクション設定
-function setupConn(type){
-  conn.on('open',()=>{
-    appendLog('✅ 接続成功: '+conn.peer);
-    if(type==='send') sendBackupData();
-  });
-  conn.on('data',data=>{
-    if(data.type==='backup-file') receiveBackup(data);
-  });
-}
+        // === モード切り替え ===
+        sendModeBtn.onclick = () => {
+            sendModeBtn.classList.add('active');
+            receiveModeBtn.classList.remove('active');
+            sendMode.classList.add('active');
+            receiveMode.classList.remove('active');
+        };
+        receiveModeBtn.onclick = () => {
+            receiveModeBtn.classList.add('active');
+            sendModeBtn.classList.remove('active');
+            receiveMode.classList.add('active');
+            sendMode.classList.remove('active');
+        };
 
-// バックアップ作成
-document.getElementById('createBackupBtn').onclick=()=>{
-  const memos=JSON.parse(localStorage.getItem("memos")||"[]");
-  const format=document.getElementById("formatSelect").value;
-  const filename="memo_backup_"+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+"."+format;
-  const content=format==="json"?JSON.stringify(memos,null,2):btoa(JSON.stringify(memos));
-  const blob=new Blob([content],{type:"application/octet-stream"});
-  latestBackupBlob=blob;
-  latestBackupName=filename;
+        // === PeerJS初期化 ===
+        const peer = new Peer();
+        let conn = null;
 
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url; a.download=filename;
-  a.textContent='📥 '+filename+' をダウンロード';
-  a.className='file-link';
-  const box=document.getElementById('backupResult');
-  box.innerHTML='';
-  box.appendChild(a);
-  appendLog('🗂️ バックアップ作成完了: '+filename);
-};
+        peer.on('open', (id) => {
+            peerIdDisplay.textContent = id;
+        });
 
-// IDコピー
-document.getElementById('copyId').onclick=()=>{ navigator.clipboard.writeText(document.querySelector('#my-id span').textContent); alert('コピーしました'); };
-document.getElementById('copyRecvId').onclick=()=>{ navigator.clipboard.writeText(document.querySelector('#my-id-recv span').textContent); alert('コピーしました'); };
+        // === 送信モード ===
+        document.getElementById('createBackupBtn').onclick = async () => {
+            const data = JSON.stringify(localStorage, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const arrayBuffer = await blob.arrayBuffer();
+            const fileData = new Uint8Array(arrayBuffer);
 
-// 送信
-document.getElementById('sendBackupBtn').onclick=()=>{
-  const id=document.getElementById('connect-id').value.trim();
-  if(!id) return alert('相手のIDを入力してください');
-  if(!latestBackupBlob) return alert('先にバックアップを作成してください');
-  conn=peer.connect(id,{reliable:true});
-  setupConn('send');
-};
+            sendStatus.textContent = "待機中... 受信側が接続すると送信します。";
 
-// バックアップ送信
-function sendBackupData(){
-  latestBackupBlob.arrayBuffer().then(buf=>{
-    conn.send({type:'backup-file', name:latestBackupName, data:buf});
-    appendLog('📤 '+latestBackupName+' を送信しました');
-  });
-}
+            peer.on('connection', (connection) => {
+                conn = connection;
+                conn.on('open', () => {
+                    sendStatus.textContent = "受信側にデータを送信中...";
+                    conn.send({ type: "backup", data: fileData });
+                    conn.send({ type: "filename", name: "backup.dat" });
+                    sendStatus.textContent = "✅ 送信完了しました。";
+                });
+            });
+        };
 
-// 受信処理
-function receiveBackup(file){
-  const blob=new Blob([file.data],{type:'application/octet-stream'});
-  const url=URL.createObjectURL(blob);
-  const div=document.createElement('div');
-  div.textContent='📥 '+file.name+' を受信';
-  const loadBtn=document.createElement('button');
-  loadBtn.textContent='読み込む';
-  loadBtn.className='load-btn';
-  loadBtn.onclick=()=>loadBackupFromBlob(blob);
-  div.appendChild(loadBtn);
-  document.getElementById('recvList').appendChild(div);
-  appendLog('📩 バックアップ受信完了: '+file.name);
-}
+        // === 受信モード ===
+        document.getElementById('connectBtn').onclick = () => {
+            const peerId = document.getElementById('peerIdInput').value.trim();
+            if (!peerId) {
+                alert("送信側のIDを入力してください。");
+                return;
+            }
+            receiveStatus.textContent = "接続中...";
+            conn = peer.connect(peerId);
+            conn.on('open', () => {
+                receiveStatus.textContent = "接続しました。データを待機中...";
+            });
+            conn.on('data', (msg) => {
+                if (msg.type === "backup") {
+                    window.receivedBackup = msg.data;
+                    receiveStatus.textContent = "📦 バックアップを受信しました。『読み込み』を押してください。";
+                    const blob = new Blob([msg.data], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
 
-// ローカルファイル読み込み
-document.getElementById('loadLocalBtn').onclick=()=>{
-  const file=document.getElementById('localFileInput').files[0];
-  if(!file) return alert('ファイルを選択してください');
-  loadBackupFromFile(file);
-};
+                    const loadBtn = document.createElement('button');
+                    loadBtn.textContent = "読み込み";
+                    loadBtn.onclick = async () => {
+                        const text = await blob.text();
+                        const data = JSON.parse(text);
+                        for (const key in data) {
+                            localStorage.setItem(key, data[key]);
+                        }
+                        alert("バックアップを復元しました！");
+                        location.href = 'home.html';
+                    };
+                    receiveMode.appendChild(loadBtn);
+                }
+            });
+        };
 
-function loadBackupFromFile(file){
-  const reader=new FileReader();
-  reader.onload=e=>{
-    loadBackupContent(e.target.result);
-  };
-  reader.readAsText(file);
-}
+        // === ローカルファイル読み込み ===
+        document.getElementById('loadLocalBackupBtn').onclick = async () => {
+            const file = document.getElementById('localFileInput').files[0];
+            if (!file) {
+                alert("ファイルを選択してください。");
+                return;
+            }
+            const text = await file.text();
+            try {
+                const data = JSON.parse(text);
+                for (const key in data) {
+                    localStorage.setItem(key, data[key]);
+                }
+                alert("バックアップを復元しました！");
+                location.href = 'home.html';
+            } catch {
+                alert("バックアップの読み込みに失敗しました。");
+            }
+        };
+    </script>
 
-function loadBackupFromBlob(blob){
-  const reader=new FileReader();
-  reader.onload=e=>loadBackupContent(e.target.result);
-  reader.readAsText(blob);
-}
-
-function loadBackupContent(content){
-  try{
-    let memos;
-    if(content.trim().startsWith("[")) memos=JSON.parse(content);
-    else memos=JSON.parse(atob(content));
-    localStorage.setItem("memos",JSON.stringify(memos));
-    appendLog('✅ バックアップデータを読み込みました');
-    alert("バックアップを読み込みました。ホームに戻って確認してください。");
-  }catch(e){
-    alert("読み込みに失敗しました: "+e.message);
-  }
-}
-</script>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+        .backup-container {
+            max-width: 600px;
+            margin: auto;
+            text-align: center;
+        }
+        .mode-switch {
+            margin: 20px 0;
+        }
+        .mode-switch button {
+            margin: 5px;
+            padding: 10px 20px;
+        }
+        .mode-switch .active {
+            background: #0078d7;
+            color: #fff;
+        }
+        .mode {
+            display: none;
+            margin-top: 20px;
+        }
+        .mode.active {
+            display: block;
+        }
+        .back-btn {
+            margin-top: 30px;
+        }
+    </style>
 </body>
 </html>
