@@ -213,6 +213,7 @@ window.onload = () => {
     const backupFileInput = document.getElementById('backupFileInput');
 
     let peer = null;
+    let peerIdTimer = null; // (修正) タイムアウト監視用
 
     // モード切り替え
     sendModeBtn.onclick = () => {
@@ -226,6 +227,7 @@ window.onload = () => {
         sendMode.style.display = 'none';
         receiveMode.style.display = 'block';
         status.textContent = '受信モード。Peer IDを取得中です...';
+        myPeerId.textContent = '取得中...'; // (追加) モード切替時にリセット
         initializePeer();
     };
 
@@ -234,9 +236,24 @@ window.onload = () => {
         if (peer) {
             peer.destroy(); // 既存の接続を破棄
         }
-        peer = new Peer();
+        if (peerIdTimer) {
+            clearTimeout(peerIdTimer); // (修正) 既存のタイマーをクリア
+        }
+
+        // (修正) 10秒以内にIDが取得できない場合のエラー処理
+        peerIdTimer = setTimeout(() => {
+            if (receiveMode.style.display === 'block' && myPeerId.textContent === '取得中...') {
+                const errorMsg = 'P2Pサーバーへの接続がタイムアウトしました。ネットワークを確認するか、時間をおいて再試行してください。';
+                status.textContent = errorMsg;
+                myPeerId.textContent = '取得失敗';
+                console.warn(errorMsg);
+            }
+        }, 10000); // 10秒
+
+        peer = new Peer(); // PeerJSサーバーはデフォルトを使用
 
         peer.on('open', id => {
+            clearTimeout(peerIdTimer); // (修正) タイムアウトをクリア
             if (receiveMode.style.display === 'block') {
                 myPeerId.textContent = id;
                 status.textContent = '受信待機中。上記のIDを送信側に伝えてください。';
@@ -259,21 +276,41 @@ window.onload = () => {
             });
         });
 
+        // (修正) エラーハンドリングを詳細化
         peer.on('error', err => {
-            status.textContent = `P2Pエラー: ${err.type}`;
+            clearTimeout(peerIdTimer); // エラー時もタイマーをクリア
+            
+            let errorMessage = `P2Pエラー: ${err.type}`;
             console.error('PeerJS error:', err);
+            
             if (err.type === 'peer-unavailable') {
-                alert('指定されたIDが見つかりません。');
+                errorMessage = '指定されたIDが見つかりません。';
+                alert(errorMessage);
             } else if (err.type === 'network') {
-                alert('ネットワーク接続に問題があるようです。');
+                errorMessage = 'ネットワーク接続に問題があるか、P2Pサーバーに接続できません。';
+                alert(errorMessage);
+            } else if (err.type === 'server-error' || err.type === 'socket-error' || err.type === 'browser-incompatible') {
+                errorMessage = 'P2Pサーバーとの接続に失敗しました。ブラウザが非対応か、時間をおいて再試行してください。';
+                alert(errorMessage);
+            } else if (err.type === 'disconnected') {
+                 errorMessage = 'P2Pサーバーから切断されました。';
+            } else {
+                 alert(`不明なP2Pエラーが発生しました: ${err.type}`);
+            }
+            
+            status.textContent = errorMessage;
+            
+            // 受信モードでID取得に失敗した場合
+            if (receiveMode.style.display === 'block') {
+                myPeerId.textContent = '取得失敗';
             }
         });
     }
 
     // 接続ボタン (データ送信)
     connectBtn.onclick = () => {
-        if (!peer) {
-            status.textContent = 'Peerが初期化されていません。';
+        if (!peer || peer.destroyed) { // (修正) peerが破棄されていないかもチェック
+            status.textContent = 'Peerが初期化されていません。モードを再度選択してください。';
             return;
         }
         const remoteId = remotePeerId.value;
@@ -288,11 +325,24 @@ window.onload = () => {
         conn.on('open', () => {
             status.textContent = '接続完了。データを送信中...';
             try {
-                const data = {
-                    memos: localStorage.getItem('memos'),
-                    settings: localStorage.getItem('settings')
-                };
-                conn.send(data);
+                // (修正) 全プロファイルのデータをバックアップする
+                const allData = {};
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    // 'memoapp_' で始まるキー（プロファイルデータや設定）を対象
+                    if (key.startsWith('memoapp_')) {
+                        allData[key] = localStorage.getItem(key);
+                    }
+                }
+
+                if (Object.keys(allData).length === 0) {
+                     alert('送信するデータがありません。');
+                     status.textContent = '送信データがありませんでした。';
+                     conn.close();
+                     return;
+                }
+
+                conn.send(allData); // 全データを送信
                 status.textContent = 'データ送信完了。';
             } catch (e) {
                 status.textContent = `エラー: データの取得または送信に失敗しました。 ${e.message}`;
@@ -308,6 +358,10 @@ window.onload = () => {
 
     // IDコピーボタン
     copyBtn.onclick = () => {
+        if (myPeerId.textContent === '取得中...' || myPeerId.textContent === '取得失敗') {
+            alert('IDがまだ取得できていません。');
+            return;
+        }
         navigator.clipboard.writeText(myPeerId.textContent).then(() => {
             alert('IDをクリップボードにコピーしました。');
         }).catch(err => {
@@ -317,22 +371,43 @@ window.onload = () => {
     };
 
     // --- バックアップデータの復元（共通関数） ---
+    // (修正) 複数のプロファイルデータ(allData)を復元できるように変更
     function restoreFromBackup(data) {
-        if (data && typeof data.memos === 'string' && typeof data.settings === 'string') {
-            // データが想定通り（memosとsettingsキーを持つオブジェクト）か確認
-            localStorage.setItem('memos', data.memos);
-            localStorage.setItem('settings', data.settings);
-        } else if (typeof data === 'string') {
-             // 古い形式（JSON文字列全体）も一応サポート
-             const parsedData = JSON.parse(data);
-             if (parsedData && parsedData.memos && parsedData.settings) {
-                 localStorage.setItem('memos', parsedData.memos);
-                 localStorage.setItem('settings', parsedData.settings);
-             } else {
-                throw new Error('無効なデータ形式です (JSON String)');
-             }
-        } else {
-            throw new Error('無効なデータ形式です (Object)');
+        if (typeof data !== 'object' || data === null) {
+            throw new Error('無効なデータ形式です (Not an object)');
+        }
+
+        // (重要) 現在のデータを消去する前に確認する
+        let keysToClear = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            if (localStorage.key(i).startsWith('memoapp_')) {
+                keysToClear.push(localStorage.key(i));
+            }
+        }
+        
+        if (keysToClear.length > 0) {
+            if (!window.confirm('現在のすべてのプロファイルとメモデータを、バックアップファイルの内容で上書きします。よろしいですか？')) {
+                throw new Error('復元がキャンセルされました。');
+            }
+        }
+
+        // 現在の 'memoapp_' データをすべて消去
+        keysToClear.forEach(key => {
+            localStorage.removeItem(key);
+        });
+
+        // バックアップデータから復元
+        let restoredCount = 0;
+        for (const key in data) {
+            // 'memoapp_' で始まるキーのみを復元
+            if (key.startsWith('memoapp_') && typeof data[key] === 'string') {
+                localStorage.setItem(key, data[key]);
+                restoredCount++;
+            }
+        }
+        
+        if (restoredCount === 0) {
+            throw new Error('バックアップデータに有効なメモデータが含まれていませんでした。');
         }
     }
 
@@ -340,19 +415,23 @@ window.onload = () => {
     // --- (追加機能) バックアップをダウンロード ---
     downloadBackupBtn.onclick = () => {
         try {
-            const data = {
-                memos: localStorage.getItem('memos'),
-                settings: localStorage.getItem('settings')
-            };
+            // (修正) 全プロファイルのデータをバックアップする
+            const allData = {};
+            let hasData = false;
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('memoapp_')) {
+                    allData[key] = localStorage.getItem(key);
+                    hasData = true;
+                }
+            }
             
-            // memos と settings が両方 null (または空) の場合は警告
-            if ((data.memos === null || data.memos === '[]') && 
-                (data.settings === null || data.settings === '{}')) {
+            if (!hasData) {
                 alert('バックアップするデータがありません。');
                 return;
             }
 
-            const jsonString = JSON.stringify(data, null, 2);
+            const jsonString = JSON.stringify(allData, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             
@@ -367,7 +446,7 @@ window.onload = () => {
             const h = date.getHours().toString().padStart(2, '0');
             const m = date.getMinutes().toString().padStart(2, '0');
             
-            a.download = `memo_backup_${Y}${M}${D}_${h}${m}.json`;
+            a.download = `memo_backup_all_${Y}${M}${D}_${h}${m}.json`;
             
             document.body.appendChild(a);
             a.click();
@@ -409,12 +488,12 @@ window.onload = () => {
                 restoreFromBackup(data);
                 
                 status.textContent = `ファイル (${file.name}) からデータを復元しました。`;
-                alert('バックアップファイルからデータを復元しました。');
+                alert('バックアップファイルからデータを復元しました。\n(ホーム画面に戻ると反映されます)');
 
             } catch (err) {
                 status.textContent = `ファイル読み込みエラー: ${err.message}`;
                 console.error(err);
-                alert('ファイルの形式が正しくないか、読み込みに失敗しました。');
+                alert(`ファイルの形式が正しくないか、読み込みに失敗しました。\n${err.message}`);
             } finally {
                 // 同じファイルを連続で選択できるように値をリセット
                 event.target.value = null;
@@ -434,3 +513,4 @@ window.onload = () => {
 
 </body>
 </html>
+
