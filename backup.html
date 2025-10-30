@@ -2,136 +2,202 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>バックアップ - メモアプリ</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://cdn.ably.io/lib/ably.min-1.js"></script>
+<title>バックアップ - メモアプリ</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/ably/browser/static/ably.min.js"></script>
 <style>
-body { font-family: "Segoe UI","Helvetica Neue",sans-serif; margin:0; padding:0; background:#f3f3f3; }
-.container { max-width:720px; margin:20px auto; background:#fff; border-radius:6px; padding:20px; box-shadow:0 4px 8px rgba(0,0,0,0.1);}
-h1 { color:#0078D4; text-align:center; }
-button { padding:8px 12px; border:none; border-radius:4px; background:#0078D4; color:#fff; cursor:pointer; margin:4px 0; }
-button:hover { background:#005a9e; }
-#deviceList { list-style:none; padding:0; margin:0; }
-#deviceList li { padding:6px 4px; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center; }
-.status { margin-top:10px; padding:8px; background:#eee; max-height:200px; overflow-y:auto; font-size:14px; }
-.info { margin-bottom:10px; background:#d9edf7; padding:10px; border-radius:4px; font-size:14px; }
+/* 前回のCSSをそのまま使用 */
+body { font-family: "Segoe UI", "Noto Sans JP", sans-serif; background: #f3f4f6; color: #333; margin:0; padding:0; }
+.backup-container { max-width: 600px; margin: 40px auto; background: #fff; border-radius:16px; padding:24px; box-shadow:0 5px 20px rgba(0,0,0,0.1); position:relative; }
+h1 { text-align:center; margin-bottom:10px; }
+.mode-select { display:flex; justify-content:center; gap:10px; margin:20px 0; }
+button { border:none; padding:10px 16px; border-radius:8px; background:#0078d7; color:white; font-size:15px; cursor:pointer; transition:0.2s; }
+button:hover { background:#005fa3; }
+button.secondary { background:#ccc; color:#000; }
+.hidden { display:none; }
+.section { background:#f9fafb; border-radius:12px; padding:20px; margin-top:10px; }
+.status { margin-top:8px; padding:8px; border-radius:8px; background:#eee; font-size:14px; }
+.status.ok { background:#d1fae5; color:#065f46; }
+.status.wait { background:#fef3c7; color:#92400e; }
+.status.err { background:#fee2e2; color:#991b1b; }
+.info-btn { position:absolute; top:10px; right:10px; background:transparent; font-size:22px; color:#666; cursor:pointer; }
+#infoModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; }
+#infoContent { background:white; padding:20px; border-radius:12px; max-width:500px; line-height:1.6; }
+#infoContent h2 { margin-top:0; }
+#infoContent button { background:#0078d7; color:white; float:right; }
 </style>
 </head>
 <body>
-<div class="container">
-    <h1>💾 バックアップ</h1>
-    <div class="info">
-        近くのデバイスを検出してバックアップを送信できます。<br>
-        受信時は送信元のIDと位置情報を確認して承認してください。<br>
-        完全削除は localStorage の全メモを消去します。
+<div class="backup-container">
+    <button class="info-btn" id="infoBtn">ℹ️</button>
+    <h1>💾 バックアップ転送</h1>
+    <p style="text-align:center;">別デバイスへメモをオンライン転送します。</p>
+
+    <div class="mode-select">
+        <button id="sendModeBtn">📤 送信モード</button>
+        <button id="receiveModeBtn">📥 受信モード</button>
     </div>
-    <ul id="deviceList"></ul>
-    <button id="refreshBtn">デバイスリスト更新</button>
-    <button id="clearLocalStorageBtn">📁 メモを完全削除</button>
-    <div class="status" id="statusBox"></div>
+
+    <div id="sendSection" class="section hidden">
+        <h2>📤 送信モード</h2>
+        <p>バックアップデータを生成し、Ably経由で送信します。</p>
+        <p><b>チャンネルID:</b> <span id="sendChannelId">-</span></p>
+        <button id="generateBackup">バックアップ作成＆送信開始</button>
+        <div id="sendStatus" class="status"></div>
+    </div>
+
+    <div id="receiveSection" class="section hidden">
+        <h2>📥 受信モード</h2>
+        <p>送信側で表示されたチャンネルIDを入力してください。</p>
+        <input type="text" id="channelInput" placeholder="例: memo_backup_1234" style="width:100%;padding:8px;">
+        <button id="connectChannel">接続</button>
+        <div id="receiveStatus" class="status"></div>
+
+        <div id="receivedFileArea" class="hidden">
+            <p>受信完了: <b><span id="receivedFileName"></span></b></p>
+            <button id="loadBackup">読み込み</button>
+        </div>
+
+        <hr>
+        <p>またはローカルファイルから読み込む：</p>
+        <input type="file" id="localFile">
+    </div>
+
+    <div style="text-align:center;margin-top:20px;">
+        <button class="secondary" onclick="window.location.href='home.html'">🏠 ホームへ戻る</button>
+    </div>
+</div>
+
+<div id="infoModal">
+    <div id="infoContent">
+        <h2>ℹ️ バックアップ転送の使い方</h2>
+        <ul>
+            <li><b>送信モード：</b>古い端末で開き、「バックアップ作成＆送信開始」を押します。</li>
+            <li>表示された <b>チャンネルID</b> を控えてください。</li>
+            <li><b>受信モード：</b>新しい端末で開き、控えたIDを入力 → 「接続」します。</li>
+            <li>受信完了後、「読み込み」ボタンを押すとメモが復元されます。</li>
+            <li>Wi-Fiが異なっていてもAblyサーバーを介して通信できます。</li>
+            <li>バックアップファイル（.dat）はJSON文字列形式で安全に保存されます。</li>
+        </ul>
+        <button id="closeInfo">閉じる</button>
+    </div>
 </div>
 
 <script>
-const ably = new Ably.Realtime('MwTA8A.xOgfaQ:hHOaQc-N5UpMmsueZflvvdfjHhHHDJi7x6plgKd5c-Y');
-const channel = ably.channels.get('memo-backup');
-let devices = [];
-let myId = 'device-' + Math.random().toString(36).slice(2,10);
-const statusBox = document.getElementById('statusBox');
-let memoData = []; // backup.html起動時に一度だけ読み込み、それ以降は更新しない
+const ably = new Ably.Realtime("m4nEkQ.t_3fkw:CyxgDJS1Z5J8b6FAiCxkO1F-t7cLQGIxmfin9BzL");
 
-// 起動時に一度だけ memo を取得
-try {
-    memoData = JSON.parse(localStorage.getItem('memos')||'[]');
-} catch(e){
-    memoData = [];
-    console.warn('既存メモの読み込みに失敗しました');
-}
+const sendModeBtn = document.getElementById("sendModeBtn");
+const receiveModeBtn = document.getElementById("receiveModeBtn");
+const sendSection = document.getElementById("sendSection");
+const receiveSection = document.getElementById("receiveSection");
+const sendChannelIdEl = document.getElementById("sendChannelId");
+const sendStatus = document.getElementById("sendStatus");
+const receiveStatus = document.getElementById("receiveStatus");
+const receivedFileArea = document.getElementById("receivedFileArea");
+const receivedFileName = document.getElementById("receivedFileName");
+const localFileInput = document.getElementById("localFile");
+let receivedData = null;
 
-function log(msg){
-    const div = document.createElement('div');
-    div.textContent = msg;
-    statusBox.appendChild(div);
-    statusBox.scrollTop = statusBox.scrollHeight;
-}
+// モード切替
+sendModeBtn.onclick = () => { sendSection.classList.remove("hidden"); receiveSection.classList.add("hidden"); };
+receiveModeBtn.onclick = () => { receiveSection.classList.remove("hidden"); sendSection.classList.add("hidden"); };
 
-// デバイス情報をリスト更新
-function updateDeviceList(){
-    const ul = document.getElementById('deviceList');
-    ul.innerHTML = '';
-    devices.forEach(d=>{
-        const li = document.createElement('li');
-        li.textContent = `${d.id} (${d.location||'位置情報なし'})`;
-        const chk = document.createElement('input');
-        chk.type='checkbox';
-        chk.dataset.id = d.id;
-        li.appendChild(chk);
-        ul.appendChild(li);
-    });
-}
-
-// 10秒ごとに自分以外のデバイスを収集
-setInterval(()=>{
-    channel.publish('announce', {id: myId});
-}, 10000);
-
-channel.subscribe('announce', msg=>{
-    if(msg.data.id !== myId){
-        const exists = devices.find(d=>d.id===msg.data.id);
-        if(!exists){
-            devices.push({id: msg.data.id, location: msg.data.location||'不明'});
-            log(`検出: ${msg.data.id}`);
-            updateDeviceList();
-        }
-    }
-});
-
-// 手動リフレッシュ
-document.getElementById('refreshBtn').onclick = ()=>{ devices=[]; log('リストをクリアしました'); };
+// Infoモーダル
+const infoBtn = document.getElementById("infoBtn");
+const infoModal = document.getElementById("infoModal");
+const closeInfo = document.getElementById("closeInfo");
+infoBtn.onclick = () => infoModal.style.display = "flex";
+closeInfo.onclick = () => infoModal.style.display = "none";
+infoModal.onclick = e => { if(e.target===infoModal) infoModal.style.display="none"; };
 
 // 送信処理
-function sendBackup(toId){
-    const dataStr = JSON.stringify(memoData);
-    channel.publish('backup-send', {to: toId, from: myId, data: dataStr});
-    log(`送信: ${toId}`);
-}
+document.getElementById("generateBackup").onclick = async () => {
+    const channelId = "memo_backup_" + Math.floor(Math.random() * 10000);
+    sendChannelIdEl.textContent = channelId;
+    sendStatus.textContent = "バックアップを生成中...";
+    sendStatus.className = "status wait";
+
+    try {
+        // localStorage の全メモを JSON 文字列に変換
+        let backupData = {};
+        for (let i=0;i<localStorage.length;i++){
+            const key = localStorage.key(i);
+            backupData[key] = localStorage.getItem(key);
+        }
+        const dataStr = JSON.stringify(backupData);
+
+        const fileName = "backup_" + new Date().toISOString().slice(0,10) + ".dat";
+
+        const channel = ably.channels.get(channelId);
+        await channel.publish("backup", { fileName, data: dataStr });
+
+        sendStatus.textContent = `✅ 送信完了しました！ (${fileName})`;
+        sendStatus.className = "status ok";
+    } catch(e){
+        sendStatus.textContent = "❌ 送信に失敗しました";
+        sendStatus.className = "status err";
+        console.error(e);
+    }
+};
 
 // 受信処理
-channel.subscribe('backup-send', msg=>{
-    if(msg.data.to !== myId) return; // 自分宛でない場合は無視
+document.getElementById("connectChannel").onclick = async () => {
+    const id = document.getElementById("channelInput").value.trim();
+    if(!id) return alert("チャンネルIDを入力してください");
+    receiveStatus.textContent = "⏳ 接続中...";
+    receiveStatus.className = "status wait";
 
-    const confirmMsg = `デバイス ${msg.data.from} からバックアップを受信しますか？`;
-    if(confirm(confirmMsg)){
-        try{
-            const parsed = JSON.parse(msg.data.data);
-            localStorage.setItem('memos', JSON.stringify(parsed));
-            log(`受信完了: ${msg.data.from}`);
+    const channel = ably.channels.get(id);
+    channel.subscribe("backup", (msg) => {
+        try {
+            receivedData = msg.data;
+            // JSON形式チェック
+            JSON.parse(receivedData.data);
+            receivedFileName.textContent = receivedData.fileName;
+            receivedFileArea.classList.remove("hidden");
+            receiveStatus.textContent = "✅ 受信完了しました！";
+            receiveStatus.className = "status ok";
         } catch(e){
-            log(`受信失敗: データ形式が不正`);
+            receiveStatus.textContent = "❌ 受信データが不正です";
+            receiveStatus.className = "status err";
+            console.error(e);
         }
-    } else {
-        log(`受信拒否: ${msg.data.from}`);
+    });
+};
+
+// バックアップ読み込み
+document.getElementById("loadBackup").onclick = () => {
+    if(!receivedData) return alert("データがありません");
+    try {
+        const json = JSON.parse(receivedData.data);
+        for(const key in json) localStorage.setItem(key, json[key]);
+        alert("バックアップを読み込みました。");
+        window.location.href = "home.html";
+    } catch(e){
+        alert("読み込みに失敗しました: データ形式不正");
+        console.error(e);
     }
+};
+
+// ローカルファイル読み込み
+localFileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+        try {
+            const json = JSON.parse(reader.result);
+            for(const key in json) localStorage.setItem(key, json[key]);
+            alert("ローカルバックアップを読み込みました。");
+            window.location.href = "home.html";
+        } catch(err){
+            alert("ファイル形式が正しくありません");
+            console.error(err);
+        }
+    };
+    reader.readAsText(file);
 });
-
-// 完全削除ボタン
-document.getElementById('clearLocalStorageBtn').onclick = ()=>{
-    if(confirm('本当に全てのメモを削除しますか？ この操作は元に戻せません。')){
-        localStorage.removeItem('memos');
-        memoData=[];
-        log('全てのメモを削除しました');
-    }
-};
-
-// チェックボックス選択送信ボタンを自動作成
-const sendBtn = document.createElement('button');
-sendBtn.textContent = '✅ 選択したデバイスに送信';
-sendBtn.onclick = ()=>{
-    const checked = Array.from(document.querySelectorAll('#deviceList input[type=checkbox]:checked'));
-    if(!checked.length) return alert('送信先を選択してください');
-    checked.forEach(c=> sendBackup(c.dataset.id));
-};
-document.body.appendChild(sendBtn);
-
 </script>
 </body>
 </html>
