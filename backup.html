@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>バックアップオプション - メモアプリ</title>
+<title>バックアップ - メモアプリ</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://cdn.ably.io/lib/ably.min-1.js"></script>
 <style>
@@ -23,7 +23,7 @@ input[type="checkbox"] { transform:scale(1.2); margin-right:8px; }
 </head>
 <body>
 <div class="container">
-    <h1>📦 メモをバックアップして送信</h1>
+    <h1>📦 メモバックアップ</h1>
 
     <div class="card info">
         このページでは近くの端末にバックアップを送信できます。<br>
@@ -93,6 +93,21 @@ function updateDeviceList(){
 updateDeviceList();
 setInterval(updateDeviceList,10000);
 
+// ArrayBuffer ↔ Base64
+function arrayBufferToBase64(buffer){
+    let binary=''; const bytes=new Uint8Array(buffer);
+    const len=bytes.byteLength;
+    for(let i=0;i<len;i++){ binary+=String.fromCharCode(bytes[i]); }
+    return btoa(binary);
+}
+function base64ToArrayBuffer(base64){
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for(let i=0;i<len;i++) bytes[i]=binary.charCodeAt(i);
+    return bytes.buffer;
+}
+
 // バックアップ作成
 function createBackup(){
     const memoData = JSON.parse(localStorage.getItem('memos') || '[]');
@@ -105,6 +120,9 @@ document.getElementById('sendBtn').onclick = async ()=>{
     const checkboxes = document.querySelectorAll('#deviceList input[type=checkbox]:checked');
     if(!checkboxes.length) return alert('送信先を選択してください');
     const backupFile = createBackup();
+    const buffer = await backupFile.arrayBuffer();
+    const b64data = arrayBufferToBase64(buffer);
+
     for(const cb of checkboxes){
         const targetId = cb.value;
         log(`📨 送信リクエスト: ${targetId}`);
@@ -112,18 +130,18 @@ document.getElementById('sendBtn').onclick = async ()=>{
             fromId: myId,
             toId: targetId,
             filename: backupFile.name,
-            fileData: await backupFile.arrayBuffer(),
+            fileData: b64data,
             position: myPosition
         });
     }
 };
 
-// 受信側イベント
+// 受信側
 channel.subscribe('send-request', async msg=>{
-    if(msg.data.toId!==myId) return;
+    if(msg.data.toId !== myId) return;
     const fromId = msg.data.fromId;
     const filename = msg.data.filename;
-    const fileData = msg.data.fileData;
+    const fileData = base64ToArrayBuffer(msg.data.fileData);
     const senderPos = msg.data.position || {lat:'不明', lng:'不明'};
 
     const approve = confirm(`バックアップ送信要求:\n送信元ID: ${fromId}\n位置: lat:${senderPos.lat}, lng:${senderPos.lng}\n受信しますか？`);
