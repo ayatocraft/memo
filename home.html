@@ -1,472 +1,91 @@
 <!DOCTYPE html>
+
 <html lang="ja">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>メモアプリ</title>
-<style>
-/* 基本スタイル */
-body {
-    font-family: "Segoe UI", "Noto Sans JP", sans-serif;
-    margin: 0;
-    background: #f3f4f6;
-    color: #333;
-    /* スクロールバーがコンテンツに重ならないように */
-    overflow-y: scroll; 
-}
-/* ヘッダー */
-#header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 20px;
-    background: #fff;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-#header h1 {
-    margin: 0;
-    font-size: 24px;
-}
-.icon-btn {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    padding: 5px;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    line-height: 1;
-    transition: background-color 0.2s;
-}
-.icon-btn:hover {
-    background-color: #f0f0f0;
-}
 
-/* メインコンテンツ */
-#main {
-    padding: 20px;
-}
-#memoContainer {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
-}
-.memo-card {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    padding: 15px;
-    cursor: pointer;
-    transition: box-shadow 0.2s;
-    word-wrap: break-word;
-    /* メモが長すぎる場合に備える */
-    max-height: 300px;
-    overflow: hidden;
-}
-.memo-card:hover {
-    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
-}
-.memo-card-content {
-    /* プレビュー表示のため、改行を保持 */
-    white-space: pre-wrap; 
-}
+    <meta charset="UTF-8">
 
-/* フローティング追加ボタン */
-#addMemoBtn {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: #0078D7;
-    color: white;
-    font-size: 36px;
-    line-height: 60px;
-    text-align: center;
-    border: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-#addMemoBtn:hover {
-    background: #005fa3;
-}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-/* モーダル共通スタイル (プロファイル用) */
-.modal {
-    display: none; 
-    position: fixed; 
-    z-index: 100; 
-    left: 0; top: 0;
-    width: 100%; height: 100%;
-    overflow: auto; 
-    background-color: rgba(0,0,0,0.4);
-    animation: fadeIn 0.3s;
-}
-.modal-content {
-    background-color: #fefefe;
-    margin: 10% auto;
-    padding: 25px 30px;
-    border: 1px solid #888;
-    width: 90%;
-    max-width: 500px;
-    border-radius: 12px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    animation: slideIn 0.3s;
-}
-.close-btn {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-    line-height: 1;
-}
-.close-btn:hover {
-    color: #000;
-}
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-@keyframes slideIn {
-    from { transform: translateY(-50px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
+    <title>ホーム - メモアプリ</title>
 
-/* (削除) メモ編集モーダル関連のスタイルを削除 */
+    <link rel="manifest" href="manifest.json">
 
-/* プロファイル管理モーダル (既存) */
-.profile-section {
-    margin-bottom: 25px;
-}
-.profile-section h3 {
-    margin-top: 0;
-    margin-bottom: 10px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 5px;
-}
-.profile-section label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 500;
-}
-.profile-section select, .profile-section input[type="text"] {
-    width: 100%;
-    padding: 10px;
-    box-sizing: border-box;
-    border-radius: 6px;
-    border: 1px solid #ccc;
-    font-size: 16px;
-}
-.profile-section button {
-    width: 100%;
-    padding: 12px;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    margin-top: 10px;
-    font-size: 16px;
-    font-weight: 500;
-}
-.profile-section button:hover {
-    background: #218838;
-}
+    <link rel="stylesheet" href="style.css">
 
-</style>
 </head>
+
 <body>
 
-<!-- ヘッダー -->
-<div id="header">
-    <h1>メモ</h1>
-    <div>
-        <!-- バックアップボタン (既存) -->
-        <button id="backupBtn" class="icon-btn" title="バックアップのオプション">💾</button>
-        <!-- プロファイルボタン (既存) -->
-        <button id="profileBtn" class="icon-btn" title="プロファイル管理">👤</button>
+    <div class="container">
+
+        <aside class="sidebar">
+
+            <h2>Memo</h2>
+
+            <button id="newMemoBtn">新しいメモを作成 +</button>
+
+            <nav>
+
+                <h3>メモ一覧</h3>
+
+                <ul id="memoList"></ul>
+
+                <h3>アーカイブ</h3>
+
+                <ul id="archiveList"></ul>
+
+            </nav>
+
+
+
+            <div class="backup-section">
+
+                <hr>
+
+                <button id="backupBtn" class="backup-btn">💾 バックアップのオプション</button>
+
+            </div>
+
+        </aside>
+
+
+
+        <main class="content">
+
+            <div id="memoGrid" class="memo-grid"></div>
+
+
+
+            <div id="welcomeMessage" class="welcome hidden">
+
+                <h1>ようこそ</h1>
+
+                <p>「新しいメモを作成」から最初のメモを作りましょう。</p>
+
+            </div>
+
+        </main>
+
     </div>
-</div>
-
-<!-- メインコンテンツ (メモ一覧) -->
-<main id="main">
-    <div id="memoContainer">
-        <!-- メモはJSによってここに追加されます -->
-    </div>
-</main>
-
-<!-- フローティング追加ボタン -->
-<button id="addMemoBtn" title="新しいメモを追加">+</button>
-
-<!-- (削除) メモ編集モーダルを削除 -->
-
-<!-- プロファイル管理モーダル (既存) -->
-<div id="profileModal" class="modal">
-    <div class="modal-content">
-        <span class="close-btn" id="closeProfileModal">&times;</span>
-        <h2>プロファイル管理</h2>
-        
-        <div class="profile-section">
-            <h3>プロファイルを切り替え</h3>
-            <label for="profileSelect">現在のプロファイル:</label>
-            <select id="profileSelect"></select>
-            <small>切り替えるとページがリロードされます。</small>
-        </div>
-        
-        <div class="profile-section">
-            <h3>新しいプロファイルを追加</h3>
-            <label for="newProfileName">プロファイル名:</label>
-            <input type="text" id="newProfileName" placeholder="例: 仕事用">
-            <button id="addProfileBtn">追加</button>
-        </div>
-    </div>
-</div>
 
 
-<script>
 
-// === プロファイル管理 (既存) ===
-let currentProfileName = 'User 1'; // デフォルト
-const PROFILE_LIST_KEY = 'memoapp_profiles';
-const ACTIVE_PROFILE_KEY = 'memoapp_activeProfileName';
+    <script>
 
-/**
- * アクティブなプロファイル用のストレージキーを取得
- * @param {string} key 'memos' または 'settings'
- * @returns {string} 名前空間付きキー (例: 'memoapp_profile_User 1_memos')
- */
-function getStorageKey(key) {
-    return `memoapp_profile_${currentProfileName}_${key}`;
-}
+        // バックアップ画面への遷移
 
-/**
- * アクティブなプロファイルのデータを読み込む
- * @param {string} key 'memos' または 'settings'
- * @returns {string | null}
- */
-function loadData(key) {
-    return localStorage.getItem(getStorageKey(key));
-}
+        document.getElementById('backupBtn').addEventListener('click', () => {
 
-/**
- * アクティブなプロファイルのデータを保存
- * @param {string} key 'memos' または 'settings'
- * @param {string} value 保存する値
- */
-function saveData(key, value) {
-    localStorage.setItem(getStorageKey(key), value);
-}
+            window.location.href = 'backup.html';
 
-/**
- * アクティブなプロファイルを読み込むか、初回起動時は初期化
- */
-function loadActiveProfile() {
-    const profilesJSON = localStorage.getItem(PROFILE_LIST_KEY);
-    if (!profilesJSON) {
-        // 初回起動
-        localStorage.setItem(PROFILE_LIST_KEY, JSON.stringify(['User 1']));
-        localStorage.setItem(ACTIVE_PROFILE_KEY, 'User 1');
-        currentProfileName = 'User 1';
-    } else {
-        // 既存ユーザー
-        const profiles = JSON.parse(profilesJSON);
-        const activeProfile = localStorage.getItem(ACTIVE_PROFILE_KEY);
-        
-        // アクティブプロファイルがリストに存在するか確認
-        if (activeProfile && profiles.includes(activeProfile)) {
-            currentProfileName = activeProfile;
-        } else {
-            // 存在しない場合、リストの先頭をアクティブにする
-            currentProfileName = profiles[0] || 'User 1';
-            localStorage.setItem(ACTIVE_PROFILE_KEY, currentProfileName);
-        }
-    }
-    // デバッグ用にタイトルに表示
-    document.title = `メモアプリ (${currentProfileName})`;
-}
-// === プロファイル管理ここまで ===
-
-
-// === メモアプリ本体ロジック ===
-window.onload = () => {
-    
-    // 1. (最優先) プロファイルの初期化
-    loadActiveProfile();
-
-    // 要素の取得
-    const memoContainer = document.getElementById('memoContainer');
-    const addMemoBtn = document.getElementById('addMemoBtn');
-    
-    // (削除) メモ編集モーダル関連の要素取得を削除
-    // const editorModal = ...
-    // const closeEditorModal = ...
-    // const memoEditor = ...
-    // const saveMemoBtn = ...
-    // const deleteMemoBtn = ...
-
-    // (既存) バックアップボタン
-    const backupBtn = document.getElementById('backupBtn');
-
-    // (既存) プロファイルモーダルの要素
-    const profileBtn = document.getElementById('profileBtn');
-    const profileModal = document.getElementById('profileModal');
-    const closeProfileModal = document.getElementById('closeProfileModal');
-    const profileSelect = document.getElementById('profileSelect');
-    const newProfileName = document.getElementById('newProfileName');
-    const addProfileBtn = document.getElementById('addProfileBtn');
-
-    let memos = [];
-    // (削除) let currentEditingIndex = -1;
-
-    // メモをストレージから読み込む (プロファイル対応)
-    function loadMemos() {
-        memos = JSON.parse(loadData('memos')) || [];
-        renderMemos();
-    }
-
-    // (注意) saveMemos は memo.html 側で必要になります
-    // function saveMemos() {
-    //     saveData('memos', JSON.stringify(memos));
-    // }
-
-    // メモ一覧を描画
-    function renderMemos() {
-        memoContainer.innerHTML = '';
-        if (memos.length === 0) {
-            memoContainer.innerHTML = '<p style="color: #666; text-align:center; grid-column: 1 / -1;">メモはありません。下の「+」ボタンから追加しましょう。</p>';
-            return;
-        }
-        
-        memos.forEach((memo, index) => {
-            const memoCard = document.createElement('div');
-            memoCard.className = 'memo-card';
-            
-            const content = document.createElement('div');
-            content.className = 'memo-card-content';
-            content.textContent = memo; 
-            
-            memoCard.appendChild(content);
-            
-            // (変更) クリックでモーダルを開く代わりに memo.html へ遷移
-            memoCard.onclick = () => {
-                // memo.html に編集対象のIDを渡す
-                window.location.href = `memo.html?id=${index}`;
-            };
-            memoContainer.appendChild(memoCard);
         });
-    }
 
-    // (削除) openEditor 関数を削除
-    // (削除) closeEditor 関数を削除
+    </script>
 
-    // --- イベントリスナー ---
-
-    // (変更) +ボタンは memo.html へ（IDなしで）遷移
-    addMemoBtn.onclick = () => {
-        // IDなしで遷移 = 新規メモ
-        window.location.href = 'memo.html';
-    };
-
-    // (削除) モーダルの保存・削除・閉じるボタンのイベントを削除
-    // closeEditorModal.onclick = ...
-    // saveMemoBtn.onclick = ...
-    // deleteMemoBtn.onclick = ...
-
-    // --- (既存) バックアップ画面への遷移 ---
-    backupBtn.onclick = () => {
-        window.location.href = 'backup.html';
-    };
-
-    // --- (既存) プロファイルモーダルのロジック ---
-
-    // モーダルを開く
-    profileBtn.onclick = () => {
-        updateProfileSelect();
-        profileModal.style.display = 'block';
-    };
-
-    // モーダルを閉じる
-    closeProfileModal.onclick = () => {
-        profileModal.style.display = 'none';
-    };
-    
-    // (変更) モーダル外クリックで閉じる (プロファイルモーダルのみ対象)
-    window.onclick = (event) => {
-        if (event.target == profileModal) {
-            profileModal.style.display = 'none';
-        }
-    };
-
-    // プロファイル選択リストを更新
-    function updateProfileSelect() {
-        const profiles = JSON.parse(localStorage.getItem(PROFILE_LIST_KEY) || '["User 1"]');
-        profileSelect.innerHTML = '';
-        
-        profiles.forEach(name => {
-            const option = document.createElement('option');
-            option.value = name;
-            option.textContent = name;
-            if (name === currentProfileName) {
-                option.selected = true;
-            }
-            profileSelect.appendChild(option);
-        });
-    }
-
-    // プロファイル切り替え
-    profileSelect.onchange = () => {
-        const newName = profileSelect.value;
-        if (newName !== currentProfileName) {
-            localStorage.setItem(ACTIVE_PROFILE_KEY, newName);
-            alert(`プロファイル「${newName}」に切り替えました。ページをリロードします。`);
-            location.reload();
-        }
-    };
-
-    // プロファイル追加
-    addProfileBtn.onclick = () => {
-        const name = newProfileName.value.trim();
-        if (!name) {
-            alert('プロファイル名を入力してください。');
-            return;
-        }
-
-        const profiles = JSON.parse(localStorage.getItem(PROFILE_LIST_KEY) || '["User 1"]');
-        
-        if (profiles.includes(name)) {
-            alert('その名前のプロファイルは既に使用されています。');
-            return;
-        }
-        if (name.length > 50) {
-            alert('プロファイル名は50文字以内にしてください。');
-            return;
-        }
-
-        profiles.push(name);
-        localStorage.setItem(PROFILE_LIST_KEY, JSON.stringify(profiles));
-        
-        newProfileName.value = '';
-        updateProfileSelect(); // リストを更新
-        
-        if (window.confirm(`プロファイル「${name}」を追加しました。\nすぐに切り替えますか？`)) {
-             localStorage.setItem(ACTIVE_PROFILE_KEY, name);
-             location.reload();
-        }
-    };
-
-    // --- 初期化 ---
-    loadMemos();
-};
-
-</script>
+    <script src="app.js"></script>
 
 </body>
-</html>
 
+</html>
