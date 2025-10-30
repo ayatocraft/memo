@@ -2,257 +2,175 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>バックアップ - メモアプリ</title>
-<link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/ably/browser/static/ably.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.ably.io/lib/ably.min-1.js"></script>
 <style>
-body {
-    font-family: "Segoe UI", "Noto Sans JP", sans-serif;
-    background: #f3f4f6;
-    color: #333;
-    margin: 0;
-    padding: 0;
-}
-.backup-container {
-    max-width: 600px;
-    margin: 40px auto;
-    background: #fff;
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-    position: relative;
-}
-h1 {
-    text-align: center;
-    margin-bottom: 10px;
-}
-.mode-select {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin: 20px 0;
-}
-button {
-    border: none;
-    padding: 10px 16px;
-    border-radius: 8px;
-    background: #0078d7;
-    color: white;
-    font-size: 15px;
-    cursor: pointer;
-    transition: 0.2s;
-}
-button:hover {
-    background: #005fa3;
-}
-button.secondary {
-    background: #ccc;
-    color: #000;
-}
-.hidden { display: none; }
-.section {
-    background: #f9fafb;
-    border-radius: 12px;
-    padding: 20px;
-    margin-top: 10px;
-}
-.status {
-    margin-top: 8px;
-    padding: 8px;
-    border-radius: 8px;
-    background: #eee;
-    font-size: 14px;
-}
-.status.ok { background: #d1fae5; color: #065f46; }
-.status.wait { background: #fef3c7; color: #92400e; }
-.status.err { background: #fee2e2; color: #991b1b; }
-
-.info-btn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: transparent;
-    font-size: 22px;
-    color: #666;
-    cursor: pointer;
-}
-
-#infoModal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.4);
-    align-items: center;
-    justify-content: center;
-}
-#infoContent {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    max-width: 500px;
-    line-height: 1.6;
-}
-#infoContent h2 {
-    margin-top: 0;
-}
-#infoContent button {
-    background: #0078d7;
-    color: white;
-    float: right;
-}
+body { font-family:"Segoe UI","Helvetica Neue",sans-serif; margin:0; padding:10px; background:#f3f3f3; }
+.container { max-width:800px; margin:auto; }
+h1 { text-align:center; color:#0078D4; }
+.card { background:#fff; padding:20px; border-radius:6px; box-shadow:0 4px 8px rgba(0,0,0,0.1); margin-bottom:10px; }
+button { background:#0078D4; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer; }
+button:hover { background:#005a9e; }
+ul { list-style:none; padding:0; }
+li { padding:6px; border-bottom:1px solid #eee; display:flex; align-items:center; justify-content:space-between; }
+input[type="file"] { margin-top:4px; }
+.status { background:#eee; padding:8px; margin-top:10px; max-height:200px; overflow-y:auto; font-size:14px; }
+.info { background:#e7f3fe; padding:10px; border-radius:4px; margin-bottom:10px; }
 </style>
 </head>
 <body>
-    <div class="backup-container">
-        <button class="info-btn" id="infoBtn">ℹ️</button>
-        <h1>💾 バックアップ転送</h1>
-        <p style="text-align:center;">別デバイスへメモをオンライン転送します。</p>
-
-        <div class="mode-select">
-            <button id="sendModeBtn">📤 送信モード</button>
-            <button id="receiveModeBtn">📥 受信モード</button>
-        </div>
-
-        <div id="sendSection" class="section hidden">
-            <h2>📤 送信モード</h2>
-            <p>バックアップデータを生成し、Ably経由で送信します。</p>
-            <p><b>チャンネルID:</b> <span id="sendChannelId">-</span></p>
-            <button id="generateBackup">バックアップ作成＆送信開始</button>
-            <div id="sendStatus" class="status"></div>
-        </div>
-
-        <div id="receiveSection" class="section hidden">
-            <h2>📥 受信モード</h2>
-            <p>送信側で表示されたチャンネルIDを入力してください。</p>
-            <input type="text" id="channelInput" placeholder="例: memo_backup_1234" style="width:100%;padding:8px;">
-            <button id="connectChannel">接続</button>
-            <div id="receiveStatus" class="status"></div>
-
-            <div id="receivedFileArea" class="hidden">
-                <p>受信完了: <b><span id="receivedFileName"></span></b></p>
-                <button id="loadBackup">読み込み</button>
-            </div>
-
-            <hr>
-            <p>またはローカルファイルから読み込む：</p>
-            <input type="file" id="localFile">
-        </div>
-
-        <div style="text-align:center;margin-top:20px;">
-            <button class="secondary" onclick="window.location.href='home.html'">🏠 ホームへ戻る</button>
-        </div>
+<div class="container">
+    <h1>📦 メモバックアップ</h1>
+    <div class="card info">
+        このページでは近くの端末にバックアップを送信できます。<br>
+        送信前に送信先端末のIDと位置情報を確認してください。
     </div>
 
-    <!-- Info Modal -->
-    <div id="infoModal">
-        <div id="infoContent">
-            <h2>ℹ️ バックアップ転送の使い方</h2>
-            <ul>
-                <li><b>送信モード：</b> 古い端末で開き、「バックアップ作成＆送信開始」を押します。</li>
-                <li>表示された <b>チャンネルID</b> を控えてください。</li>
-                <li><b>受信モード：</b> 新しい端末で開き、控えたIDを入力 → 「接続」します。</li>
-                <li>受信完了後、「読み込み」ボタンを押すとメモが復元されます。</li>
-                <li>Wi-Fiが異なっていてもAblyサーバーを介して通信できます。</li>
-                <li>バックアップファイル（.dat）をローカルに保存／読み込みも可能です。</li>
-            </ul>
-            <button id="closeInfo">閉じる</button>
-        </div>
+    <div class="card">
+        <h2>オンライン端末を選択して送信</h2>
+        <ul id="deviceList"></ul>
+        <button id="sendBtn">送信</button>
     </div>
+
+    <div class="card">
+        <h2>受信済みバックアップ</h2>
+        <ul id="recvList"></ul>
+        <input type="file" id="localFileInput">
+        <button id="loadLocalBtn">ローカルから読み込み</button>
+    </div>
+
+    <div class="status" id="log"></div>
+</div>
 
 <script>
-const ably = new Ably.Realtime("m4nEkQ.t_3fkw:CyxgDJS1Z5J8b6FAiCxkO1F-t7cLQGIxmfin9BzL");
+const ably = new Ably.Realtime('MwTA8A.xOgfaQ:hHOaQc-N5UpMmsueZflvvdfjHhHHDJi7x6plgKd5c-Y');
+const channel = ably.channels.get('memo-backup');
 
-// 要素取得
-const sendModeBtn = document.getElementById("sendModeBtn");
-const receiveModeBtn = document.getElementById("receiveModeBtn");
-const sendSection = document.getElementById("sendSection");
-const receiveSection = document.getElementById("receiveSection");
-const sendChannelIdEl = document.getElementById("sendChannelId");
-const sendStatus = document.getElementById("sendStatus");
-const receiveStatus = document.getElementById("receiveStatus");
-const receivedFileArea = document.getElementById("receivedFileArea");
-const receivedFileName = document.getElementById("receivedFileName");
-const localFileInput = document.getElementById("localFile");
-let receivedData = null;
+let myId = 'device-' + Math.floor(Math.random()*10000);
+let myPosition = {lat:null, lng:null};
+let devices = {};
+let recvQueue = [];
 
-// モード切り替え
-sendModeBtn.onclick = () => {
-    sendSection.classList.remove("hidden");
-    receiveSection.classList.add("hidden");
-};
-receiveModeBtn.onclick = () => {
-    receiveSection.classList.remove("hidden");
-    sendSection.classList.add("hidden");
-};
+function log(msg){ 
+    const box = document.getElementById('log'); 
+    const div = document.createElement('div'); div.textContent = msg; box.appendChild(div); box.scrollTop = box.scrollHeight;
+}
 
-// Infoモーダル制御
-const infoBtn = document.getElementById("infoBtn");
-const infoModal = document.getElementById("infoModal");
-const closeInfo = document.getElementById("closeInfo");
-infoBtn.onclick = () => infoModal.style.display = "flex";
-closeInfo.onclick = () => infoModal.style.display = "none";
-infoModal.onclick = e => { if (e.target === infoModal) infoModal.style.display = "none"; };
+// 位置情報取得
+navigator.geolocation.getCurrentPosition(pos => {
+    myPosition.lat = pos.coords.latitude;
+    myPosition.lng = pos.coords.longitude;
+    registerDevice();
+}, err => {
+    log('⚠️ 位置情報取得できません: ' + err.message);
+    registerDevice(); // 位置情報なくても登録
+});
 
-// 送信処理
-document.getElementById("generateBackup").onclick = async () => {
-    const channelId = "memo_backup_" + Math.floor(Math.random() * 10000);
-    sendChannelIdEl.textContent = channelId;
-    sendStatus.textContent = "バックアップを生成中...";
-    sendStatus.className = "status wait";
+// 自分をAblyに登録
+function registerDevice(){
+    channel.presence.enter({id: myId, lat: myPosition.lat, lng: myPosition.lng});
+}
 
-    try {
-        const data = JSON.stringify(localStorage);
-        const fileName = "backup_" + new Date().toISOString().slice(0,10) + ".dat";
-        const channel = ably.channels.get(channelId);
-        await channel.publish("backup", { fileName, data });
-        sendStatus.textContent = `✅ 送信完了しました！ (${fileName})`;
-        sendStatus.className = "status ok";
-    } catch (e) {
-        sendStatus.textContent = "❌ 送信に失敗しました";
-        sendStatus.className = "status err";
+// 端末リストを更新（10秒ごと）
+function updateDeviceList(){
+    channel.presence.get((err, members)=>{
+        if(err) return log('❌ デバイス取得エラー: '+err);
+        devices = {};
+        const ul = document.getElementById('deviceList');
+        ul.innerHTML = '';
+        members.forEach(m=>{
+            if(m.clientId === myId) return; // 自分は除く
+            devices[m.clientId] = m.data;
+            const li = document.createElement('li');
+            li.innerHTML = `<label><input type="checkbox" value="${m.clientId}"> ${m.clientId} (lat:${m.data.lat}, lng:${m.data.lng})</label>`;
+            ul.appendChild(li);
+        });
+        // 同一デバイス内のウィンドウをテスト用に追加
+        const testId = myId + '-test';
+        const li = document.createElement('li');
+        li.innerHTML = `<label><input type="checkbox" value="${testId}"> ${testId} (テストウィンドウ)</label>`;
+        ul.appendChild(li);
+    });
+}
+
+updateDeviceList();
+setInterval(updateDeviceList,10000);
+
+// バックアップデータ作成
+function createBackup(){
+    const memoData = JSON.parse(localStorage.getItem('memos') || '[]');
+    const blob = new Blob([JSON.stringify(memoData)], {type:'application/json'});
+    return new File([blob], 'backup_' + Date.now() + '.dat', {type:'application/json'});
+}
+
+// 送信
+document.getElementById('sendBtn').onclick = async ()=>{
+    const checkboxes = document.querySelectorAll('#deviceList input[type=checkbox]:checked');
+    if(!checkboxes.length) return alert('送信先を選択してください');
+    const backupFile = createBackup();
+    for(const cb of checkboxes){
+        const targetId = cb.value;
+        log(`📨 送信リクエスト: ${targetId}`);
+        channel.publish('send-request', {
+            fromId: myId,
+            toId: targetId,
+            filename: backupFile.name,
+            fileData: await backupFile.arrayBuffer()
+        });
     }
 };
 
-// 受信処理
-document.getElementById("connectChannel").onclick = async () => {
-    const id = document.getElementById("channelInput").value.trim();
-    if (!id) return alert("チャンネルIDを入力してください");
-    receiveStatus.textContent = "⏳ 接続中...";
-    receiveStatus.className = "status wait";
+// 受信側イベント
+channel.subscribe('send-request', async msg=>{
+    if(msg.data.toId !== myId) return;
+    const fromId = msg.data.fromId;
+    const filename = msg.data.filename;
+    const fileData = msg.data.fileData;
+    const senderPos = msg.data.position || {lat:'不明', lng:'不明'};
 
-    const channel = ably.channels.get(id);
-    channel.subscribe("backup", (msg) => {
-        receivedData = msg.data;
-        receivedFileName.textContent = receivedData.fileName;
-        receivedFileArea.classList.remove("hidden");
-        receiveStatus.textContent = "✅ 受信完了しました！";
-        receiveStatus.className = "status ok";
-    });
-};
+    const approve = confirm(`バックアップ送信要求:\n送信元ID: ${fromId}\n位置: lat:${senderPos.lat}, lng:${senderPos.lng}\n受信しますか？`);
+    channel.publish('send-response', {fromId: myId, toId: fromId, approved:approve});
 
-// バックアップ読み込み
-document.getElementById("loadBackup").onclick = () => {
-    if (!receivedData) return alert("データがありません");
-    const json = JSON.parse(receivedData.data);
-    for (const key in json) localStorage.setItem(key, json[key]);
-    alert("バックアップを読み込みました。");
-    window.location.href = "home.html";
-};
+    if(!approve) return log(`❌ ${fromId} からの送信拒否`);
+    
+    // 受信リストに追加
+    const li = document.createElement('li');
+    li.textContent = filename + ' ';
+    const btn = document.createElement('button');
+    btn.textContent = '読み込み';
+    btn.onclick = ()=>{
+        const blob = new Blob([fileData], {type:'application/json'});
+        const reader = new FileReader();
+        reader.onload = e=>{
+            localStorage.setItem('memos', e.target.result);
+            alert('バックアップを読み込みました');
+        };
+        reader.readAsText(blob);
+    };
+    li.appendChild(btn);
+    document.getElementById('recvList').appendChild(li);
+});
+
+// 送信者への承認・拒否通知
+channel.subscribe('send-response', msg=>{
+    if(msg.data.toId !== myId) return;
+    const status = msg.data.approved ? '承認されました' : '拒否されました';
+    log(`📬 ${msg.data.fromId} への送信は${status}`);
+});
 
 // ローカルファイル読み込み
-localFileInput.addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+document.getElementById('loadLocalBtn').onclick = ()=>{
+    const fileInput = document.getElementById('localFileInput');
+    if(!fileInput.files.length) return alert('ファイルを選択してください');
+    const file = fileInput.files[0];
     const reader = new FileReader();
-    reader.onload = () => {
-        const json = JSON.parse(reader.result);
-        for (const key in json) localStorage.setItem(key, json[key]);
-        alert("ローカルバックアップを読み込みました。");
-        window.location.href = "home.html";
+    reader.onload = e=>{
+        localStorage.setItem('memos', e.target.result);
+        alert('バックアップを読み込みました');
     };
     reader.readAsText(file);
-});
+};
 </script>
 </body>
 </html>
