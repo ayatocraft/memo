@@ -7,23 +7,23 @@
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/ably/browser/static/ably.min.js"></script>
 <style>
-body { font-family: "Segoe UI", sans-serif; background:#f3f4f6; margin:0; padding:0; }
-.container { max-width:600px; margin:40px auto; background:#fff; padding:24px; border-radius:16px; box-shadow:0 5px 20px rgba(0,0,0,0.1); }
-h1 { text-align:center; margin-bottom:10px; }
-button { padding:10px 16px; border:none; border-radius:8px; background:#0078d7; color:white; font-size:15px; cursor:pointer; transition:0.2s; }
-button:hover { background:#005fa3; }
-button.secondary { background:#ccc; color:#000; }
-.section { background:#f9fafb; border-radius:12px; padding:20px; margin-top:10px; }
+body { font-family: "Segoe UI","Noto Sans JP",sans-serif; background:#f3f4f6; margin:0; padding:0; }
+.container { max-width:600px; margin:40px auto; background:#fff; padding:24px; border-radius:16px; box-shadow:0 5px 20px rgba(0,0,0,0.1); position:relative; }
+h1 { text-align:center; margin-bottom:20px; }
+.section { background:#f9fafb; border-radius:12px; padding:20px; margin-top:15px; }
 .status { margin-top:8px; padding:8px; border-radius:8px; font-size:14px; background:#eee; }
 .status.ok { background:#d1fae5; color:#065f46; }
 .status.wait { background:#fef3c7; color:#92400e; }
 .status.err { background:#fee2e2; color:#991b1b; }
+button { border:none; padding:10px 16px; border-radius:8px; background:#0078d7; color:white; font-size:15px; cursor:pointer; transition:0.2s; }
+button:hover { background:#005fa3; }
+button.secondary { background:#ccc; color:#000; }
+input[type=text] { width:100%; padding:8px; border-radius:8px; border:1px solid #ccc; margin-top:5px; }
 .info-btn { position:absolute; top:10px; right:10px; background:transparent; font-size:22px; color:#666; cursor:pointer; }
 #infoModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; }
 #infoContent { background:white; padding:20px; border-radius:12px; max-width:500px; line-height:1.6; }
 #infoContent h2 { margin-top:0; }
 #infoContent button { background:#0078d7; color:white; float:right; }
-.hidden { display:none; }
 </style>
 </head>
 <body>
@@ -32,35 +32,35 @@ button.secondary { background:#ccc; color:#000; }
     <h1>💾 バックアップ転送</h1>
 
     <div class="section">
-        <h2>自分のID</h2>
-        <p>このIDを送信側に伝えます：</p>
+        <h2>📥 受信側情報</h2>
+        <p>このIDを送信側に伝えてください：</p>
         <p><b id="myId">生成中...</b></p>
         <div id="receiveStatus" class="status wait">受信待機中...</div>
     </div>
 
     <div class="section">
-        <h2>📤 送信モード</h2>
-        <p>受信側のIDを入力して送信します：</p>
-        <input type="text" id="targetId" placeholder="受信側IDを入力" style="width:100%;padding:8px;">
+        <h2>📤 送信側</h2>
+        <p>受信側IDを入力してバックアップを送信：</p>
+        <input type="text" id="targetId" placeholder="受信側IDを入力">
         <button id="sendBackupBtn">バックアップ作成＆送信</button>
         <div id="sendStatus" class="status"></div>
     </div>
 
-    <div style="text-align:center;margin-top:20px;">
+    <div style="text-align:center; margin-top:20px;">
         <button class="secondary" onclick="window.location.href='home.html'">🏠 ホームへ戻る</button>
     </div>
 </div>
 
-<!-- Info Modal -->
+<!-- Infoモーダル -->
 <div id="infoModal">
     <div id="infoContent">
         <h2>ℹ️ 使い方</h2>
         <ul>
-            <li>自分のIDを控えてください。</li>
+            <li>受信側はこのページを開いてIDを控えます。</li>
             <li>送信側: 受信側IDを入力 → 「バックアップ作成＆送信」。</li>
-            <li>受信側は自動で受信します。</li>
+            <li>受信側はボタン不要で自動受信されます。</li>
             <li>受信完了後、localStorage に復元されます。</li>
-            <li>Ably サーバー経由なので異なるネットワークでも送受信できます。</li>
+            <li>Wi-Fiが異なっていてもAblyサーバー経由で送受信可能です。</li>
         </ul>
         <button id="closeInfo">閉じる</button>
     </div>
@@ -70,36 +70,37 @@ button.secondary { background:#ccc; color:#000; }
 const ably = new Ably.Realtime("m4nEkQ.t_3fkw:CyxgDJS1Z5J8b6FAiCxkO1F-t7cLQGIxmfin9BzL");
 
 const myIdEl = document.getElementById("myId");
+const receiveStatus = document.getElementById("receiveStatus");
 const sendBackupBtn = document.getElementById("sendBackupBtn");
 const sendStatus = document.getElementById("sendStatus");
 const targetIdInput = document.getElementById("targetId");
-const receiveStatus = document.getElementById("receiveStatus");
 const infoBtn = document.getElementById("infoBtn");
 const infoModal = document.getElementById("infoModal");
 const closeInfo = document.getElementById("closeInfo");
 
+// ID生成
 let myId = "memo_" + Math.floor(Math.random()*10000);
 myIdEl.textContent = myId;
 let receivedData = null;
 
-// Infoモーダル
+// Infoモーダル制御
 infoBtn.onclick = ()=> infoModal.style.display="flex";
 closeInfo.onclick = ()=> infoModal.style.display="none";
 infoModal.onclick = e => { if(e.target===infoModal) infoModal.style.display="none"; }
 
-// 受信側購読（常時待機）
+// 受信側購読
 const channel = ably.channels.get(myId);
 channel.subscribe("backup", msg => {
     receivedData = msg.data;
-    try {
+    try{
         const json = JSON.parse(receivedData.data);
         for(const key in json) localStorage.setItem(key,json[key]);
         receiveStatus.textContent = "✅ 受信完了 (送信元: "+receivedData.senderId+")";
         receiveStatus.className = "status ok";
         alert("バックアップを受信しました");
-    } catch(e) {
-        receiveStatus.textContent = "❌ 受信データが壊れています";
-        receiveStatus.className = "status err";
+    }catch(e){
+        receiveStatus.textContent="❌ データ受信エラー";
+        receiveStatus.className="status err";
         console.error(e);
     }
 });
@@ -108,7 +109,7 @@ channel.subscribe("backup", msg => {
 sendBackupBtn.onclick = async ()=>{
     const targetId = targetIdInput.value.trim();
     if(!targetId) return alert("受信側IDを入力してください");
-    sendStatus.textContent = "⏳ バックアップ生成中...";
+    sendStatus.textContent="⏳ バックアップ生成中...";
     sendStatus.className="status wait";
     try{
         const data = JSON.stringify(localStorage);
@@ -117,7 +118,7 @@ sendBackupBtn.onclick = async ()=>{
         await targetChannel.publish("backup",{ senderId: myId, fileName, data });
         sendStatus.textContent=`✅ 送信完了 (${fileName})`;
         sendStatus.className="status ok";
-    } catch(e){
+    }catch(e){
         sendStatus.textContent="❌ 送信失敗";
         sendStatus.className="status err";
         console.error(e);
