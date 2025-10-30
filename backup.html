@@ -6,178 +6,132 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://cdn.ably.io/lib/ably.min-1.js"></script>
 <style>
-body { font-family:"Segoe UI","Helvetica Neue",sans-serif; margin:0; padding:10px; background:#f3f3f3; }
-.container { max-width:900px; margin:auto; }
-h1 { text-align:center; color:#0078D4; margin-bottom:20px; }
-.card { background:#fff; padding:15px; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); margin-bottom:15px; }
-.card-header { font-weight:bold; margin-bottom:10px; color:#0078D4; display:flex; justify-content:space-between; align-items:center; }
-.device-card { border:1px solid #ddd; border-radius:6px; padding:10px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
-.device-info { display:flex; flex-direction:column; }
-button { background:#0078D4; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:14px; }
+body { font-family: "Segoe UI","Helvetica Neue",sans-serif; margin:0; padding:0; background:#f3f3f3; }
+.container { max-width:720px; margin:20px auto; background:#fff; border-radius:6px; padding:20px; box-shadow:0 4px 8px rgba(0,0,0,0.1);}
+h1 { color:#0078D4; text-align:center; }
+button { padding:8px 12px; border:none; border-radius:4px; background:#0078D4; color:#fff; cursor:pointer; margin:4px 0; }
 button:hover { background:#005a9e; }
-input[type="checkbox"] { transform:scale(1.2); margin-right:8px; }
-.status { background:#eee; padding:8px; margin-top:10px; max-height:200px; overflow-y:auto; font-size:14px; border-radius:6px; }
-.info { background:#e7f3fe; padding:10px; border-radius:6px; margin-bottom:10px; }
-@media(max-width:600px){ .device-card{ flex-direction:column; align-items:flex-start; } }
+#deviceList { list-style:none; padding:0; margin:0; }
+#deviceList li { padding:6px 4px; border-bottom:1px solid #ccc; display:flex; justify-content:space-between; align-items:center; }
+.status { margin-top:10px; padding:8px; background:#eee; max-height:200px; overflow-y:auto; font-size:14px; }
+.info { margin-bottom:10px; background:#d9edf7; padding:10px; border-radius:4px; font-size:14px; }
 </style>
 </head>
 <body>
 <div class="container">
-    <h1>📦 メモバックアップ</h1>
-
-    <div class="card info">
-        このページでは近くの端末にバックアップを送信できます。<br>
-        送信前に送信先端末のIDと位置情報を確認してください。
+    <h1>💾 バックアップ</h1>
+    <div class="info">
+        近くのデバイスを検出してバックアップを送信できます。<br>
+        受信時は送信元のIDと位置情報を確認して承認してください。<br>
+        完全削除は localStorage の全メモを消去します。
     </div>
-
-    <div class="card">
-        <div class="card-header">オンライン端末</div>
-        <div id="deviceList"></div>
-        <button id="sendBtn">選択した端末に送信</button>
-    </div>
-
-    <div class="card">
-        <div class="card-header">受信済みバックアップ</div>
-        <div id="recvList"></div>
-        <input type="file" id="localFileInput">
-        <button id="loadLocalBtn">ローカルから読み込み</button>
-    </div>
-
-    <div class="status" id="log"></div>
+    <ul id="deviceList"></ul>
+    <button id="refreshBtn">デバイスリスト更新</button>
+    <button id="clearLocalStorageBtn">📁 メモを完全削除</button>
+    <div class="status" id="statusBox"></div>
 </div>
 
 <script>
 const ably = new Ably.Realtime('MwTA8A.xOgfaQ:hHOaQc-N5UpMmsueZflvvdfjHhHHDJi7x6plgKd5c-Y');
 const channel = ably.channels.get('memo-backup');
+let devices = [];
+let myId = 'device-' + Math.random().toString(36).slice(2,10);
+const statusBox = document.getElementById('statusBox');
+let memoData = []; // backup.html起動時に一度だけ読み込み、それ以降は更新しない
 
-let myId = 'device-' + Math.floor(Math.random()*10000);
-let myPosition = {lat:null, lng:null};
-let devices = {};
+// 起動時に一度だけ memo を取得
+try {
+    memoData = JSON.parse(localStorage.getItem('memos')||'[]');
+} catch(e){
+    memoData = [];
+    console.warn('既存メモの読み込みに失敗しました');
+}
 
-// ログ表示
-function log(msg){ const box = document.getElementById('log'); const div = document.createElement('div'); div.textContent = msg; box.appendChild(div); box.scrollTop = box.scrollHeight; }
+function log(msg){
+    const div = document.createElement('div');
+    div.textContent = msg;
+    statusBox.appendChild(div);
+    statusBox.scrollTop = statusBox.scrollHeight;
+}
 
-// 位置情報取得
-navigator.geolocation.getCurrentPosition(pos => { myPosition.lat=pos.coords.latitude; myPosition.lng=pos.coords.longitude; registerDevice(); },
-    err => { log('⚠️ 位置情報取得できません: ' + err.message); registerDevice(); });
-
-// 自分をAblyに登録
-function registerDevice(){ channel.presence.enter({id: myId, lat: myPosition.lat, lng: myPosition.lng}); }
-
-// 端末リスト更新
+// デバイス情報をリスト更新
 function updateDeviceList(){
-    channel.presence.get((err, members)=>{
-        if(err) return log('❌ デバイス取得エラー: '+err);
-        devices={};
-        const container = document.getElementById('deviceList');
-        container.innerHTML='';
-        members.forEach(m=>{
-            if(m.clientId===myId) return;
-            devices[m.clientId]=m.data;
-            const div = document.createElement('div'); div.className='device-card';
-            div.innerHTML=`<div class="device-info">
-                <label><input type="checkbox" value="${m.clientId}">${m.clientId}</label>
-                <span>位置: lat:${m.data.lat}, lng:${m.data.lng}</span>
-            </div>`;
-            container.appendChild(div);
-        });
-        // 同一デバイス内ウィンドウ（テスト用）
-        const testId = myId+'-test';
-        const div = document.createElement('div'); div.className='device-card';
-        div.innerHTML=`<div class="device-info">
-            <label><input type="checkbox" value="${testId}">${testId} (テストウィンドウ)</label>
-        </div>`;
-        container.appendChild(div);
+    const ul = document.getElementById('deviceList');
+    ul.innerHTML = '';
+    devices.forEach(d=>{
+        const li = document.createElement('li');
+        li.textContent = `${d.id} (${d.location||'位置情報なし'})`;
+        const chk = document.createElement('input');
+        chk.type='checkbox';
+        chk.dataset.id = d.id;
+        li.appendChild(chk);
+        ul.appendChild(li);
     });
 }
-updateDeviceList();
-setInterval(updateDeviceList,10000);
 
-// ArrayBuffer ↔ Base64
-function arrayBufferToBase64(buffer){
-    let binary=''; const bytes=new Uint8Array(buffer);
-    const len=bytes.byteLength;
-    for(let i=0;i<len;i++){ binary+=String.fromCharCode(bytes[i]); }
-    return btoa(binary);
+// 10秒ごとに自分以外のデバイスを収集
+setInterval(()=>{
+    channel.publish('announce', {id: myId});
+}, 10000);
+
+channel.subscribe('announce', msg=>{
+    if(msg.data.id !== myId){
+        const exists = devices.find(d=>d.id===msg.data.id);
+        if(!exists){
+            devices.push({id: msg.data.id, location: msg.data.location||'不明'});
+            log(`検出: ${msg.data.id}`);
+            updateDeviceList();
+        }
+    }
+});
+
+// 手動リフレッシュ
+document.getElementById('refreshBtn').onclick = ()=>{ devices=[]; log('リストをクリアしました'); };
+
+// 送信処理
+function sendBackup(toId){
+    const dataStr = JSON.stringify(memoData);
+    channel.publish('backup-send', {to: toId, from: myId, data: dataStr});
+    log(`送信: ${toId}`);
 }
-function base64ToArrayBuffer(base64){
-    const binary = atob(base64);
-    const len = binary.length;
-    const bytes = new Uint8Array(len);
-    for(let i=0;i<len;i++) bytes[i]=binary.charCodeAt(i);
-    return bytes.buffer;
-}
 
-// バックアップ作成
-function createBackup(){
-    const memoData = JSON.parse(localStorage.getItem('memos') || '[]');
-    const blob = new Blob([JSON.stringify(memoData)], {type:'application/json'});
-    return new File([blob],'backup_'+Date.now()+'.dat',{type:'application/json'});
-}
+// 受信処理
+channel.subscribe('backup-send', msg=>{
+    if(msg.data.to !== myId) return; // 自分宛でない場合は無視
 
-// 送信
-document.getElementById('sendBtn').onclick = async ()=>{
-    const checkboxes = document.querySelectorAll('#deviceList input[type=checkbox]:checked');
-    if(!checkboxes.length) return alert('送信先を選択してください');
-    const backupFile = createBackup();
-    const buffer = await backupFile.arrayBuffer();
-    const b64data = arrayBufferToBase64(buffer);
+    const confirmMsg = `デバイス ${msg.data.from} からバックアップを受信しますか？`;
+    if(confirm(confirmMsg)){
+        try{
+            const parsed = JSON.parse(msg.data.data);
+            localStorage.setItem('memos', JSON.stringify(parsed));
+            log(`受信完了: ${msg.data.from}`);
+        } catch(e){
+            log(`受信失敗: データ形式が不正`);
+        }
+    } else {
+        log(`受信拒否: ${msg.data.from}`);
+    }
+});
 
-    for(const cb of checkboxes){
-        const targetId = cb.value;
-        log(`📨 送信リクエスト: ${targetId}`);
-        channel.publish('send-request',{
-            fromId: myId,
-            toId: targetId,
-            filename: backupFile.name,
-            fileData: b64data,
-            position: myPosition
-        });
+// 完全削除ボタン
+document.getElementById('clearLocalStorageBtn').onclick = ()=>{
+    if(confirm('本当に全てのメモを削除しますか？ この操作は元に戻せません。')){
+        localStorage.removeItem('memos');
+        memoData=[];
+        log('全てのメモを削除しました');
     }
 };
 
-// 受信側
-channel.subscribe('send-request', async msg=>{
-    if(msg.data.toId !== myId) return;
-    const fromId = msg.data.fromId;
-    const filename = msg.data.filename;
-    const fileData = base64ToArrayBuffer(msg.data.fileData);
-    const senderPos = msg.data.position || {lat:'不明', lng:'不明'};
-
-    const approve = confirm(`バックアップ送信要求:\n送信元ID: ${fromId}\n位置: lat:${senderPos.lat}, lng:${senderPos.lng}\n受信しますか？`);
-    channel.publish('send-response',{fromId: myId, toId: fromId, approved:approve});
-
-    if(!approve) return log(`❌ ${fromId} からの送信拒否`);
-
-    const div = document.createElement('div'); div.className='device-card';
-    div.innerHTML = `<span>${filename}</span>`;
-    const btn = document.createElement('button'); btn.textContent='読み込み';
-    btn.onclick=()=>{
-        const blob=new Blob([fileData],{type:'application/json'});
-        const reader=new FileReader();
-        reader.onload=e=>{ localStorage.setItem('memos', e.target.result); alert('バックアップを読み込みました'); };
-        reader.readAsText(blob);
-    };
-    div.appendChild(btn);
-    document.getElementById('recvList').appendChild(div);
-});
-
-// 送信者への承認/拒否通知
-channel.subscribe('send-response', msg=>{
-    if(msg.data.toId!==myId) return;
-    const status = msg.data.approved ? '承認されました' : '拒否されました';
-    log(`📬 ${msg.data.fromId} への送信は${status}`);
-});
-
-// ローカル読み込み
-document.getElementById('loadLocalBtn').onclick=()=>{
-    const fileInput=document.getElementById('localFileInput');
-    if(!fileInput.files.length) return alert('ファイルを選択してください');
-    const file=fileInput.files[0];
-    const reader=new FileReader();
-    reader.onload=e=>{ localStorage.setItem('memos', e.target.result); alert('バックアップを読み込みました'); };
-    reader.readAsText(file);
+// チェックボックス選択送信ボタンを自動作成
+const sendBtn = document.createElement('button');
+sendBtn.textContent = '✅ 選択したデバイスに送信';
+sendBtn.onclick = ()=>{
+    const checked = Array.from(document.querySelectorAll('#deviceList input[type=checkbox]:checked'));
+    if(!checked.length) return alert('送信先を選択してください');
+    checked.forEach(c=> sendBackup(c.dataset.id));
 };
+document.body.appendChild(sendBtn);
+
 </script>
 </body>
 </html>
