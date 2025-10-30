@@ -3,163 +3,134 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>バックアップ - メモアプリ</title>
-<link rel="stylesheet" href="style.css">
+<title>バックアップ転送 - メモアプリ</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
 body {
-    font-family: "Segoe UI","Noto Sans JP",sans-serif;
-    background:#f3f4f6; margin:0; padding:0;
+    font-family: "Segoe UI", "Noto Sans JP", sans-serif;
+    margin:0; padding:20px;
+    background:#f3f4f6;
 }
 .container {
-    max-width:800px;
-    width:90%;
-    margin:40px auto;
-    background:#fff;
-    padding:24px;
+    max-width:700px;
+    margin:0 auto;
+    background:white;
+    padding:20px;
     border-radius:12px;
-    box-shadow:0 5px 20px rgba(0,0,0,0.1);
-    display:flex; flex-direction:column; gap:20px;
-    position:relative;
+    box-shadow:0 4px 12px rgba(0,0,0,0.1);
 }
-h1 { text-align:center; margin-bottom:20px; }
-.mode { display:flex; flex-wrap:wrap; justify-content:center; gap:20px; }
-button {
-    display:inline-block; padding:10px 16px; border:none; border-radius:8px;
-    background:#0078d7; color:#fff; cursor:pointer; transition:0.2s;
-    min-width:140px; height:40px; text-align:center;
-}
-button:hover { background:#005fa3; }
-button.secondary { background:#ccc; color:#000; }
-.hidden { display:none; }
-.section { background:#f9fafb; border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:10px; }
-.status { margin-top:10px; padding:8px; border-radius:8px; background:#eee; font-size:14px; }
-.status.ok { background:#d1fae5; color:#065f46; }
-.status.wait { background:#fef3c7; color:#92400e; }
-.status.err { background:#fee2e2; color:#991b1b; }
-.info-btn { position:absolute; top:10px; right:10px; font-size:22px; background:transparent; color:#666; cursor:pointer; }
-#infoModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; }
-#infoContent { background:#fff; padding:20px; border-radius:12px; max-width:500px; line-height:1.6; }
-#infoContent h2 { margin-top:0; }
-#infoContent button { background:#0078d7; color:#fff; float:right; }
-input[type="text"], input[type="file"] { width:100%; max-width:400px; padding:8px; border-radius:4px; border:1px solid #ccc; }
+h1 { text-align:center; }
+.mode-section { display:flex; gap:10px; justify-content:center; margin-bottom:20px; flex-wrap:wrap; }
+.mode-section button { flex:1 1 45%; min-width:120px; padding:10px; font-size:16px; cursor:pointer; border:none; border-radius:8px; background:#0078D7; color:white; }
+.mode-section button:hover { background:#005fa3; }
+.section { display:none; margin-top:20px; padding:15px; border-radius:10px; background:#f9fafb; }
+.status { margin-top:10px; padding:8px; border-radius:6px; background:#eee; font-size:14px; }
+#myPeerIdContainer { display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+#myPeerId { font-weight:bold; }
+button.copyBtn { background:#4CAF50; color:white; padding:4px 8px; font-size:12px; border-radius:4px; border:none; cursor:pointer; }
+button.copyBtn:hover { background:#357a38; }
+input[type="text"] { width:100%; padding:6px 8px; margin-top:6px; border-radius:6px; border:1px solid #ccc; font-size:14px; }
 </style>
 </head>
 <body>
 <div class="container">
-    <button class="info-btn" id="infoBtn">ℹ️</button>
-    <h1>💾 バックアップ転送</h1>
+    <h1>💾 メモバックアップ転送</h1>
 
-    <div class="mode">
+    <div class="mode-section">
         <button id="sendModeBtn">📤 送信モード</button>
         <button id="receiveModeBtn">📥 受信モード</button>
     </div>
 
-    <div id="sendSection" class="section hidden">
-        <h2>📤 送信モード</h2>
-        <input type="text" id="peerIdInput" placeholder="受信側のPeerIDを入力">
+    <!-- PeerID表示 -->
+    <div id="myPeerIdContainer">
+        あなたのPeerID: <span id="myPeerId">取得中...</span>
+        <button class="copyBtn" id="copyPeerId">コピー</button>
+    </div>
+
+    <!-- 送信モード -->
+    <div id="sendSection" class="section">
+        <h2>送信モード</h2>
+        <p>送信先のPeerIDを入力してください:</p>
+        <input type="text" id="targetPeerId" placeholder="送信先のPeerID">
         <button id="sendBackupBtn">バックアップ作成＆送信</button>
         <div id="sendStatus" class="status"></div>
     </div>
 
-    <div id="receiveSection" class="section hidden">
-        <h2>📥 受信モード</h2>
-        <p>受信中のデータは自動で表示されます。</p>
-        <div id="receiveStatus" class="status wait">待機中...</div>
-        <div id="receivedFileArea" class="hidden">
-            <p>受信完了: <b><span id="receivedFileName"></span></b></p>
-            <button id="loadBackup">読み込み</button>
+    <!-- 受信モード -->
+    <div id="receiveSection" class="section">
+        <h2>受信モード</h2>
+        <div id="receiveStatus" class="status">待機中...</div>
+        <div id="receivedFileArea" style="display:none; margin-top:10px;">
+            <p>受信完了: <b id="receivedFileName"></b></p>
+            <button id="loadBackupBtn">読み込み</button>
         </div>
-        <hr>
-        <p>またはローカルファイルから読み込む：</p>
-        <input type="file" id="localFile">
-    </div>
-
-    <div style="text-align:center;margin-top:20px;">
-        <button class="secondary" onclick="window.location.href='home.html'">🏠 ホームへ戻る</button>
     </div>
 </div>
 
-<!-- Info Modal -->
-<div id="infoModal">
-    <div id="infoContent">
-        <h2>ℹ️ バックアップ転送の使い方</h2>
-        <ul>
-            <li>送信側：受信側のPeerIDを入力し、「バックアップ作成＆送信」を押す。</li>
-            <li>受信側：自動受信。受信完了後、「読み込み」ボタンで復元。</li>
-            <li>Wi-Fiが異なってもAbly経由で転送可能。</li>
-            <li>ローカルファイルからの読み込みも可能。</li>
-        </ul>
-        <button id="closeInfo">閉じる</button>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/ably/browser/static/ably.min.js"></script>
 <script>
-const ably = new Ably.Realtime("m4nEkQ.t_3fkw:CyxgDJS1Z5J8b6FAiCxkO1F-t7cLQGIxmfin9BzL");
-
-// UI要素
 const sendModeBtn = document.getElementById("sendModeBtn");
 const receiveModeBtn = document.getElementById("receiveModeBtn");
 const sendSection = document.getElementById("sendSection");
 const receiveSection = document.getElementById("receiveSection");
+const myPeerIdEl = document.getElementById("myPeerId");
+const copyPeerIdBtn = document.getElementById("copyPeerId");
+const targetPeerIdInput = document.getElementById("targetPeerId");
+const sendBackupBtn = document.getElementById("sendBackupBtn");
 const sendStatus = document.getElementById("sendStatus");
-const peerIdInput = document.getElementById("peerIdInput");
 const receiveStatus = document.getElementById("receiveStatus");
 const receivedFileArea = document.getElementById("receivedFileArea");
 const receivedFileName = document.getElementById("receivedFileName");
-const loadBackupBtn = document.getElementById("loadBackup");
-const localFileInput = document.getElementById("localFile");
+const loadBackupBtn = document.getElementById("loadBackupBtn");
+
+let peer = new Peer();
+let conn = null;
 let receivedData = null;
 
+// PeerID取得
+peer.on('open', id => {
+    myPeerIdEl.textContent = id;
+});
+
+// コピー機能
+copyPeerIdBtn.onclick = () => {
+    navigator.clipboard.writeText(peer.id).then(() => alert("PeerIDをコピーしました"));
+};
+
 // モード切替
-sendModeBtn.onclick = () => { sendSection.classList.remove("hidden"); receiveSection.classList.add("hidden"); };
-receiveModeBtn.onclick = () => { receiveSection.classList.remove("hidden"); sendSection.classList.add("hidden"); };
+sendModeBtn.onclick = () => { sendSection.style.display='block'; receiveSection.style.display='none'; };
+receiveModeBtn.onclick = () => { receiveSection.style.display='block'; sendSection.style.display='none'; };
 
-// Infoモーダル
-const infoBtn = document.getElementById("infoBtn");
-const infoModal = document.getElementById("infoModal");
-const closeInfo = document.getElementById("closeInfo");
-infoBtn.onclick = () => infoModal.style.display="flex";
-closeInfo.onclick = () => infoModal.style.display="none";
-infoModal.onclick = e=>{ if(e.target===infoModal) infoModal.style.display="none"; };
+// 送信
+sendBackupBtn.onclick = () => {
+    const targetId = targetPeerIdInput.value.trim();
+    if(!targetId) return alert("送信先PeerIDを入力してください");
+    sendStatus.textContent = "バックアップ作成中...";
+    sendStatus.style.background="#fff3cd";
 
-// Peer生成（受信側も同じ）
-const peer = new Peer();
-peer.on('open', id => { console.log("Peer ready:", id); });
+    const dataStr = JSON.stringify(localStorage);
+    const fileName = "backup_"+new Date().toISOString().slice(0,10)+".dat";
+    conn = peer.connect(targetId, {reliable:true});
 
-// 送信処理
-document.getElementById("sendBackupBtn").onclick = async () => {
-    const targetId = peerIdInput.value.trim();
-    if(!targetId) return alert("受信側のPeerIDを入力してください");
-
-    const data = JSON.stringify(localStorage);
-    const fileName = "backup_" + new Date().toISOString().slice(0,10) + ".dat";
-
-    const conn = peer.connect(targetId, { reliable:true });
-    conn.on('open', ()=> {
-        sendStatus.textContent = "送信中...";
-        sendStatus.className = "status wait";
-        conn.send({fileName, data});
-        sendStatus.textContent = `✅ 送信完了 (${fileName})`;
-        sendStatus.className = "status ok";
+    conn.on('open', () => {
+        conn.send({fileName, data: dataStr});
+        sendStatus.textContent = "送信完了: "+fileName;
+        sendStatus.style.background="#d4edda";
     });
-    conn.on('error', ()=> {
-        sendStatus.textContent = "❌ 送信に失敗しました";
-        sendStatus.className = "status err";
+
+    conn.on('error', err => {
+        sendStatus.textContent = "送信エラー: "+err;
+        sendStatus.style.background="#f8d7da";
     });
 };
 
-// 受信処理
-peer.on('connection', conn => {
-    receiveStatus.textContent = "受信中...";
-    receiveStatus.className = "status wait";
-    conn.on('data', msg => {
+// 受信
+peer.on('connection', c => {
+    c.on('data', msg => {
         receivedData = msg;
         receivedFileName.textContent = msg.fileName;
-        receivedFileArea.classList.remove("hidden");
-        receiveStatus.textContent = "✅ 受信完了";
-        receiveStatus.className = "status ok";
+        receivedFileArea.style.display='block';
+        receiveStatus.textContent="データ受信完了";
+        receiveStatus.style.background="#d4edda";
     });
 });
 
@@ -167,24 +138,10 @@ peer.on('connection', conn => {
 loadBackupBtn.onclick = () => {
     if(!receivedData) return alert("データがありません");
     const json = JSON.parse(receivedData.data);
-    for(const key in json) localStorage.setItem(key,json[key]);
-    alert("バックアップを読み込みました。");
-    window.location.href="home.html";
+    for(const k in json) localStorage.setItem(k,json[k]);
+    alert("バックアップを読み込みました");
+    window.location.href = "home.html";
 };
-
-// ローカルファイル読み込み
-localFileInput.addEventListener("change", e=>{
-    const file = e.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = ()=>{
-        const json = JSON.parse(reader.result);
-        for(const key in json) localStorage.setItem(key,json[key]);
-        alert("ローカルバックアップを読み込みました。");
-        window.location.href="home.html";
-    };
-    reader.readAsText(file);
-});
 </script>
 </body>
 </html>
