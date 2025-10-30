@@ -7,86 +7,163 @@
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/ably/browser/static/ably.min.js"></script>
 <style>
-/* 前回のCSSをそのまま使用 */
-body { font-family: "Segoe UI", "Noto Sans JP", sans-serif; background: #f3f4f6; color: #333; margin:0; padding:0; }
-.backup-container { max-width: 600px; margin: 40px auto; background: #fff; border-radius:16px; padding:24px; box-shadow:0 5px 20px rgba(0,0,0,0.1); position:relative; }
-h1 { text-align:center; margin-bottom:10px; }
-.mode-select { display:flex; justify-content:center; gap:10px; margin:20px 0; }
-button { border:none; padding:10px 16px; border-radius:8px; background:#0078d7; color:white; font-size:15px; cursor:pointer; transition:0.2s; }
-button:hover { background:#005fa3; }
-button.secondary { background:#ccc; color:#000; }
-.hidden { display:none; }
-.section { background:#f9fafb; border-radius:12px; padding:20px; margin-top:10px; }
-.status { margin-top:8px; padding:8px; border-radius:8px; background:#eee; font-size:14px; }
-.status.ok { background:#d1fae5; color:#065f46; }
-.status.wait { background:#fef3c7; color:#92400e; }
-.status.err { background:#fee2e2; color:#991b1b; }
-.info-btn { position:absolute; top:10px; right:10px; background:transparent; font-size:22px; color:#666; cursor:pointer; }
-#infoModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center; }
-#infoContent { background:white; padding:20px; border-radius:12px; max-width:500px; line-height:1.6; }
-#infoContent h2 { margin-top:0; }
-#infoContent button { background:#0078d7; color:white; float:right; }
+body {
+    font-family: "Segoe UI", "Noto Sans JP", sans-serif;
+    background: #f3f4f6;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+.backup-container {
+    max-width: 600px;
+    margin: 40px auto;
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    position: relative;
+}
+h1 {
+    text-align: center;
+    margin-bottom: 10px;
+}
+.mode-select {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+button {
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    background: #0078d7;
+    color: white;
+    font-size: 15px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+button:hover {
+    background: #005fa3;
+}
+button.secondary {
+    background: #ccc;
+    color: #000;
+}
+.hidden { display: none; }
+.section {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 10px;
+}
+.status {
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 8px;
+    background: #eee;
+    font-size: 14px;
+}
+.status.ok { background: #d1fae5; color: #065f46; }
+.status.wait { background: #fef3c7; color: #92400e; }
+.status.err { background: #fee2e2; color: #991b1b; }
+
+.info-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: transparent;
+    font-size: 22px;
+    color: #666;
+    cursor: pointer;
+}
+
+#infoModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    align-items: center;
+    justify-content: center;
+}
+#infoContent {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    max-width: 500px;
+    line-height: 1.6;
+}
+#infoContent h2 {
+    margin-top: 0;
+}
+#infoContent button {
+    background: #0078d7;
+    color: white;
+    float: right;
+}
 </style>
 </head>
 <body>
-<div class="backup-container">
-    <button class="info-btn" id="infoBtn">ℹ️</button>
-    <h1>💾 バックアップ転送</h1>
-    <p style="text-align:center;">別デバイスへメモをオンライン転送します。</p>
+    <div class="backup-container">
+        <button class="info-btn" id="infoBtn">ℹ️</button>
+        <h1>💾 バックアップ転送</h1>
+        <p style="text-align:center;">別デバイスへメモをオンライン転送します。</p>
 
-    <div class="mode-select">
-        <button id="sendModeBtn">📤 送信モード</button>
-        <button id="receiveModeBtn">📥 受信モード</button>
-    </div>
-
-    <div id="sendSection" class="section hidden">
-        <h2>📤 送信モード</h2>
-        <p>バックアップデータを生成し、Ably経由で送信します。</p>
-        <p><b>チャンネルID:</b> <span id="sendChannelId">-</span></p>
-        <button id="generateBackup">バックアップ作成＆送信開始</button>
-        <div id="sendStatus" class="status"></div>
-    </div>
-
-    <div id="receiveSection" class="section hidden">
-        <h2>📥 受信モード</h2>
-        <p>送信側で表示されたチャンネルIDを入力してください。</p>
-        <input type="text" id="channelInput" placeholder="例: memo_backup_1234" style="width:100%;padding:8px;">
-        <button id="connectChannel">接続</button>
-        <div id="receiveStatus" class="status"></div>
-
-        <div id="receivedFileArea" class="hidden">
-            <p>受信完了: <b><span id="receivedFileName"></span></b></p>
-            <button id="loadBackup">読み込み</button>
+        <div class="mode-select">
+            <button id="sendModeBtn">📤 送信モード</button>
+            <button id="receiveModeBtn">📥 受信モード</button>
         </div>
 
-        <hr>
-        <p>またはローカルファイルから読み込む：</p>
-        <input type="file" id="localFile">
+        <div id="sendSection" class="section hidden">
+            <h2>📤 送信モード</h2>
+            <p>バックアップデータを生成し、Ably経由で送信します。</p>
+            <p><b>チャンネルID:</b> <span id="sendChannelId">-</span></p>
+            <button id="generateBackup">バックアップ作成＆送信開始</button>
+            <div id="sendStatus" class="status"></div>
+        </div>
+
+        <div id="receiveSection" class="section hidden">
+            <h2>📥 受信モード</h2>
+            <p>送信側で表示されたチャンネルIDを入力してください。</p>
+            <input type="text" id="channelInput" placeholder="例: memo_backup_1234" style="width:100%;padding:8px;">
+            <button id="connectChannel">接続</button>
+            <div id="receiveStatus" class="status"></div>
+
+            <div id="receivedFileArea" class="hidden">
+                <p>受信完了: <b><span id="receivedFileName"></span></b></p>
+                <button id="loadBackup">読み込み</button>
+            </div>
+
+            <hr>
+            <p>またはローカルファイルから読み込む：</p>
+            <input type="file" id="localFile">
+        </div>
+
+        <div style="text-align:center;margin-top:20px;">
+            <button class="secondary" onclick="window.location.href='home.html'">🏠 ホームへ戻る</button>
+        </div>
     </div>
 
-    <div style="text-align:center;margin-top:20px;">
-        <button class="secondary" onclick="window.location.href='home.html'">🏠 ホームへ戻る</button>
+    <!-- Info Modal -->
+    <div id="infoModal">
+        <div id="infoContent">
+            <h2>ℹ️ バックアップ転送の使い方</h2>
+            <ul>
+                <li><b>送信モード：</b> 古い端末で開き、「バックアップ作成＆送信開始」を押します。</li>
+                <li>表示された <b>チャンネルID</b> を控えてください。</li>
+                <li><b>受信モード：</b> 新しい端末で開き、控えたIDを入力 → 「接続」します。</li>
+                <li>受信完了後、「読み込み」ボタンを押すとメモが復元されます。</li>
+                <li>Wi-Fiが異なっていてもAblyサーバーを介して通信できます。</li>
+                <li>バックアップファイル（.dat）をローカルに保存／読み込みも可能です。</li>
+            </ul>
+            <button id="closeInfo">閉じる</button>
+        </div>
     </div>
-</div>
-
-<div id="infoModal">
-    <div id="infoContent">
-        <h2>ℹ️ バックアップ転送の使い方</h2>
-        <ul>
-            <li><b>送信モード：</b>古い端末で開き、「バックアップ作成＆送信開始」を押します。</li>
-            <li>表示された <b>チャンネルID</b> を控えてください。</li>
-            <li><b>受信モード：</b>新しい端末で開き、控えたIDを入力 → 「接続」します。</li>
-            <li>受信完了後、「読み込み」ボタンを押すとメモが復元されます。</li>
-            <li>Wi-Fiが異なっていてもAblyサーバーを介して通信できます。</li>
-            <li>バックアップファイル（.dat）はJSON文字列形式で安全に保存されます。</li>
-        </ul>
-        <button id="closeInfo">閉じる</button>
-    </div>
-</div>
 
 <script>
 const ably = new Ably.Realtime("m4nEkQ.t_3fkw:CyxgDJS1Z5J8b6FAiCxkO1F-t7cLQGIxmfin9BzL");
 
+// 要素取得
 const sendModeBtn = document.getElementById("sendModeBtn");
 const receiveModeBtn = document.getElementById("receiveModeBtn");
 const sendSection = document.getElementById("sendSection");
@@ -99,17 +176,23 @@ const receivedFileName = document.getElementById("receivedFileName");
 const localFileInput = document.getElementById("localFile");
 let receivedData = null;
 
-// モード切替
-sendModeBtn.onclick = () => { sendSection.classList.remove("hidden"); receiveSection.classList.add("hidden"); };
-receiveModeBtn.onclick = () => { receiveSection.classList.remove("hidden"); sendSection.classList.add("hidden"); };
+// モード切り替え
+sendModeBtn.onclick = () => {
+    sendSection.classList.remove("hidden");
+    receiveSection.classList.add("hidden");
+};
+receiveModeBtn.onclick = () => {
+    receiveSection.classList.remove("hidden");
+    sendSection.classList.add("hidden");
+};
 
-// Infoモーダル
+// Infoモーダル制御
 const infoBtn = document.getElementById("infoBtn");
 const infoModal = document.getElementById("infoModal");
 const closeInfo = document.getElementById("closeInfo");
 infoBtn.onclick = () => infoModal.style.display = "flex";
 closeInfo.onclick = () => infoModal.style.display = "none";
-infoModal.onclick = e => { if(e.target===infoModal) infoModal.style.display="none"; };
+infoModal.onclick = e => { if (e.target === infoModal) infoModal.style.display = "none"; };
 
 // 送信処理
 document.getElementById("generateBackup").onclick = async () => {
@@ -119,82 +202,54 @@ document.getElementById("generateBackup").onclick = async () => {
     sendStatus.className = "status wait";
 
     try {
-        // localStorage の全メモを JSON 文字列に変換
-        let backupData = {};
-        for (let i=0;i<localStorage.length;i++){
-            const key = localStorage.key(i);
-            backupData[key] = localStorage.getItem(key);
-        }
-        const dataStr = JSON.stringify(backupData);
-
+        const data = JSON.stringify(localStorage);
         const fileName = "backup_" + new Date().toISOString().slice(0,10) + ".dat";
-
         const channel = ably.channels.get(channelId);
-        await channel.publish("backup", { fileName, data: dataStr });
-
+        await channel.publish("backup", { fileName, data });
         sendStatus.textContent = `✅ 送信完了しました！ (${fileName})`;
         sendStatus.className = "status ok";
-    } catch(e){
+    } catch (e) {
         sendStatus.textContent = "❌ 送信に失敗しました";
         sendStatus.className = "status err";
-        console.error(e);
     }
 };
 
 // 受信処理
 document.getElementById("connectChannel").onclick = async () => {
     const id = document.getElementById("channelInput").value.trim();
-    if(!id) return alert("チャンネルIDを入力してください");
+    if (!id) return alert("チャンネルIDを入力してください");
     receiveStatus.textContent = "⏳ 接続中...";
     receiveStatus.className = "status wait";
 
     const channel = ably.channels.get(id);
     channel.subscribe("backup", (msg) => {
-        try {
-            receivedData = msg.data;
-            // JSON形式チェック
-            JSON.parse(receivedData.data);
-            receivedFileName.textContent = receivedData.fileName;
-            receivedFileArea.classList.remove("hidden");
-            receiveStatus.textContent = "✅ 受信完了しました！";
-            receiveStatus.className = "status ok";
-        } catch(e){
-            receiveStatus.textContent = "❌ 受信データが不正です";
-            receiveStatus.className = "status err";
-            console.error(e);
-        }
+        receivedData = msg.data;
+        receivedFileName.textContent = receivedData.fileName;
+        receivedFileArea.classList.remove("hidden");
+        receiveStatus.textContent = "✅ 受信完了しました！";
+        receiveStatus.className = "status ok";
     });
 };
 
 // バックアップ読み込み
 document.getElementById("loadBackup").onclick = () => {
-    if(!receivedData) return alert("データがありません");
-    try {
-        const json = JSON.parse(receivedData.data);
-        for(const key in json) localStorage.setItem(key, json[key]);
-        alert("バックアップを読み込みました。");
-        window.location.href = "home.html";
-    } catch(e){
-        alert("読み込みに失敗しました: データ形式不正");
-        console.error(e);
-    }
+    if (!receivedData) return alert("データがありません");
+    const json = JSON.parse(receivedData.data);
+    for (const key in json) localStorage.setItem(key, json[key]);
+    alert("バックアップを読み込みました。");
+    window.location.href = "home.html";
 };
 
 // ローカルファイル読み込み
 localFileInput.addEventListener("change", (e) => {
     const file = e.target.files[0];
-    if(!file) return;
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-        try {
-            const json = JSON.parse(reader.result);
-            for(const key in json) localStorage.setItem(key, json[key]);
-            alert("ローカルバックアップを読み込みました。");
-            window.location.href = "home.html";
-        } catch(err){
-            alert("ファイル形式が正しくありません");
-            console.error(err);
-        }
+        const json = JSON.parse(reader.result);
+        for (const key in json) localStorage.setItem(key, json[key]);
+        alert("ローカルバックアップを読み込みました。");
+        window.location.href = "home.html";
     };
     reader.readAsText(file);
 });
