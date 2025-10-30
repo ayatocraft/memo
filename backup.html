@@ -23,6 +23,7 @@ button.secondary { background:#ccc; color:#000; }
 #infoContent { background:white; padding:20px; border-radius:12px; max-width:500px; line-height:1.6; }
 #infoContent h2 { margin-top:0; }
 #infoContent button { background:#0078d7; color:white; float:right; }
+.hidden { display:none; }
 </style>
 </head>
 <body>
@@ -32,32 +33,17 @@ button.secondary { background:#ccc; color:#000; }
 
     <div class="section">
         <h2>自分のID</h2>
-        <p>このIDを受信側に伝えます：</p>
+        <p>このIDを送信側に伝えます：</p>
         <p><b id="myId">生成中...</b></p>
+        <div id="receiveStatus" class="status wait">受信待機中...</div>
     </div>
 
     <div class="section">
         <h2>📤 送信モード</h2>
-        <p>受信側のIDを入力して送信します。</p>
+        <p>受信側のIDを入力して送信します：</p>
         <input type="text" id="targetId" placeholder="受信側IDを入力" style="width:100%;padding:8px;">
         <button id="sendBackupBtn">バックアップ作成＆送信</button>
         <div id="sendStatus" class="status"></div>
-    </div>
-
-    <div class="section">
-        <h2>📥 受信モード</h2>
-        <p>送信側から送信されたデータを受信します。</p>
-        <button id="subscribeBtn">受信開始</button>
-        <div id="receiveStatus" class="status"></div>
-
-        <div id="receivedFileArea" class="hidden">
-            <p>受信完了: <b id="receivedFileName"></b></p>
-            <button id="loadBackupBtn">読み込み</button>
-        </div>
-
-        <hr>
-        <p>またはローカルファイルから読み込む：</p>
-        <input type="file" id="localFile">
     </div>
 
     <div style="text-align:center;margin-top:20px;">
@@ -71,9 +57,9 @@ button.secondary { background:#ccc; color:#000; }
         <h2>ℹ️ 使い方</h2>
         <ul>
             <li>自分のIDを控えてください。</li>
-            <li>送信モード: 受信側IDを入力して「バックアップ作成＆送信」。</li>
-            <li>受信モード: 「受信開始」を押してデータ受信 → 「読み込み」で復元。</li>
-            <li>ローカルファイルから読み込みも可能です。</li>
+            <li>送信側: 受信側IDを入力 → 「バックアップ作成＆送信」。</li>
+            <li>受信側は自動で受信します。</li>
+            <li>受信完了後、localStorage に復元されます。</li>
             <li>Ably サーバー経由なので異なるネットワークでも送受信できます。</li>
         </ul>
         <button id="closeInfo">閉じる</button>
@@ -83,29 +69,40 @@ button.secondary { background:#ccc; color:#000; }
 <script>
 const ably = new Ably.Realtime("m4nEkQ.t_3fkw:CyxgDJS1Z5J8b6FAiCxkO1F-t7cLQGIxmfin9BzL");
 
-// UI要素
 const myIdEl = document.getElementById("myId");
 const sendBackupBtn = document.getElementById("sendBackupBtn");
 const sendStatus = document.getElementById("sendStatus");
 const targetIdInput = document.getElementById("targetId");
-const subscribeBtn = document.getElementById("subscribeBtn");
 const receiveStatus = document.getElementById("receiveStatus");
-const receivedFileArea = document.getElementById("receivedFileArea");
-const receivedFileName = document.getElementById("receivedFileName");
-const loadBackupBtn = document.getElementById("loadBackupBtn");
-const localFileInput = document.getElementById("localFile");
-
-// Infoモーダル
 const infoBtn = document.getElementById("infoBtn");
 const infoModal = document.getElementById("infoModal");
 const closeInfo = document.getElementById("closeInfo");
+
+let myId = "memo_" + Math.floor(Math.random()*10000);
+myIdEl.textContent = myId;
+let receivedData = null;
+
+// Infoモーダル
 infoBtn.onclick = ()=> infoModal.style.display="flex";
 closeInfo.onclick = ()=> infoModal.style.display="none";
 infoModal.onclick = e => { if(e.target===infoModal) infoModal.style.display="none"; }
 
-let myId = "memo_"+Math.floor(Math.random()*10000);
-let receivedData = null;
-myIdEl.textContent = myId;
+// 受信側購読（常時待機）
+const channel = ably.channels.get(myId);
+channel.subscribe("backup", msg => {
+    receivedData = msg.data;
+    try {
+        const json = JSON.parse(receivedData.data);
+        for(const key in json) localStorage.setItem(key,json[key]);
+        receiveStatus.textContent = "✅ 受信完了 (送信元: "+receivedData.senderId+")";
+        receiveStatus.className = "status ok";
+        alert("バックアップを受信しました");
+    } catch(e) {
+        receiveStatus.textContent = "❌ 受信データが壊れています";
+        receiveStatus.className = "status err";
+        console.error(e);
+    }
+});
 
 // 送信処理
 sendBackupBtn.onclick = async ()=>{
@@ -113,62 +110,19 @@ sendBackupBtn.onclick = async ()=>{
     if(!targetId) return alert("受信側IDを入力してください");
     sendStatus.textContent = "⏳ バックアップ生成中...";
     sendStatus.className="status wait";
-
     try{
         const data = JSON.stringify(localStorage);
         const fileName = "backup_"+new Date().toISOString().slice(0,10)+".dat";
-        const channel = ably.channels.get(targetId);
-        await channel.publish("backup", { senderId: myId, fileName, data });
-        sendStatus.textContent = `✅ 送信完了 (${fileName})`;
+        const targetChannel = ably.channels.get(targetId);
+        await targetChannel.publish("backup",{ senderId: myId, fileName, data });
+        sendStatus.textContent=`✅ 送信完了 (${fileName})`;
         sendStatus.className="status ok";
-    }catch(e){
+    } catch(e){
         sendStatus.textContent="❌ 送信失敗";
         sendStatus.className="status err";
         console.error(e);
     }
 };
-
-// 受信処理
-subscribeBtn.onclick = ()=>{
-    receiveStatus.textContent="⏳ 受信待機中...";
-    receiveStatus.className="status wait";
-    const channel = ably.channels.get(myId);
-    channel.subscribe("backup", msg=>{
-        receivedData = msg.data;
-        receivedFileName.textContent = receivedData.fileName + " (送信元: "+receivedData.senderId+")";
-        receivedFileArea.classList.remove("hidden");
-        receiveStatus.textContent="✅ 受信完了";
-        receiveStatus.className="status ok";
-    });
-};
-
-// 読み込み処理
-loadBackupBtn.onclick = ()=>{
-    if(!receivedData) return alert("データがありません");
-    try{
-        const json = JSON.parse(receivedData.data);
-        for(const key in json) localStorage.setItem(key,json[key]);
-        alert("バックアップを読み込みました");
-        window.location.href="home.html";
-    }catch(e){
-        alert("読み込み失敗");
-        console.error(e);
-    }
-};
-
-// ローカルファイル読み込み
-localFileInput.addEventListener("change", e=>{
-    const file = e.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = ()=>{
-        const json = JSON.parse(reader.result);
-        for(const key in json) localStorage.setItem(key,json[key]);
-        alert("ローカルバックアップを読み込みました");
-        window.location.href="home.html";
-    };
-    reader.readAsText(file);
-});
 </script>
 </body>
 </html>
