@@ -18,16 +18,29 @@
                 <h3>アーカイブ</h3>
                 <ul id="archiveList"></ul>
             </nav>
+
+            <div class="backup-section">
+                <hr>
+                <button id="backupBtn" class="backup-btn">💾 バックアップのオプション</button>
+            </div>
         </aside>
+
         <main class="content">
-            <div id="memoGrid" class="memo-grid">
-                </div>
+            <div id="memoGrid" class="memo-grid"></div>
+
             <div id="welcomeMessage" class="welcome hidden">
-                 <h1>ようこそ</h1>
-                 <p>「新しいメモを作成」から最初のメモを作りましょう。</p>
+                <h1>ようこそ</h1>
+                <p>「新しいメモを作成」から最初のメモを作りましょう。</p>
             </div>
         </main>
     </div>
+
+    <script>
+        // バックアップ画面への遷移
+        document.getElementById('backupBtn').addEventListener('click', () => {
+            window.location.href = 'backup.html';
+        });
+    </script>
     <script src="app.js"></script>
 </body>
 </html>
