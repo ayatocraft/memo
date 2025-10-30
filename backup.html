@@ -213,7 +213,7 @@ window.onload = () => {
     const backupFileInput = document.getElementById('backupFileInput');
 
     let peer = null;
-    let peerIdTimer = null; // (修正) タイムアウト監視用
+    // let peerIdTimer = null; // (修正) タイムアウト監視用 (削除)
 
     // モード切り替え
     sendModeBtn.onclick = () => {
@@ -236,24 +236,25 @@ window.onload = () => {
         if (peer) {
             peer.destroy(); // 既存の接続を破棄
         }
-        if (peerIdTimer) {
-            clearTimeout(peerIdTimer); // (修正) 既存のタイマーをクリア
-        }
+        // (削除) タイムアウトタイマーのクリア処理
+        // if (peerIdTimer) {
+        //    clearTimeout(peerIdTimer);
+        // }
 
-        // (修正) 10秒以内にIDが取得できない場合のエラー処理
-        peerIdTimer = setTimeout(() => {
-            if (receiveMode.style.display === 'block' && myPeerId.textContent === '取得中...') {
-                const errorMsg = 'P2Pサーバーへの接続がタイムアウトしました。ネットワークを確認するか、時間をおいて再試行してください。';
-                status.textContent = errorMsg;
-                myPeerId.textContent = '取得失敗';
-                console.warn(errorMsg);
-            }
-        }, 10000); // 10秒
+        // (削除) タイムアウト処理
+        // peerIdTimer = setTimeout(() => { ... }, 10000);
 
-        peer = new Peer(); // PeerJSサーバーはデフォルトを使用
+        // (修正) デフォルトのサーバーではなく、特定の公開サーバーを指定
+        // これにより接続が安定し、ID取得が早くなる可能性があります
+        peer = new Peer(undefined, { 
+            host: 'peerjs.AYC.ONE', 
+            port: 443, 
+            path: '/', 
+            secure: true 
+        });
 
         peer.on('open', id => {
-            clearTimeout(peerIdTimer); // (修正) タイムアウトをクリア
+            // clearTimeout(peerIdTimer); // (削除) タイムアウトをクリア
             if (receiveMode.style.display === 'block') {
                 myPeerId.textContent = id;
                 status.textContent = '受信待機中。上記のIDを送信側に伝えてください。';
@@ -278,7 +279,7 @@ window.onload = () => {
 
         // (修正) エラーハンドリングを詳細化
         peer.on('error', err => {
-            clearTimeout(peerIdTimer); // エラー時もタイマーをクリア
+            // clearTimeout(peerIdTimer); // (削除) エラー時もタイマーをクリア
             
             let errorMessage = `P2Pエラー: ${err.type}`;
             console.error('PeerJS error:', err);
@@ -513,4 +514,5 @@ window.onload = () => {
 
 </body>
 </html>
+
 
