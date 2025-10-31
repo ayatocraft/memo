@@ -16,9 +16,10 @@ body {
     max-width:700px;
     margin:0 auto;
     background:white;
-    padding:20px 30px;
+    padding:20px 30px 60px;
     border-radius:12px;
     box-shadow:0 4px 12px rgba(0,0,0,0.1);
+    position: relative;
 }
 h1 { 
     text-align:center; 
@@ -106,10 +107,10 @@ input[type="text"] {
     border-radius: 6px; 
     border: 1px solid #ccc; 
     font-size: 14px; 
-    box-sizing: border-box; /* 幅計算のため */
+    box-sizing: border-box; 
     margin-bottom: 15px;
 }
-/* 接続ボタンとアクションボタンのスタイル */
+
 #connectBtn, .action-btn {
     width: 100%;
     padding: 10px;
@@ -122,27 +123,33 @@ input[type="text"] {
     transition: background-color 0.2s;
 }
 
-#connectBtn {
-    background: #0078D7;
-}
-#connectBtn:hover {
-    background: #005fa3;
-}
+#connectBtn { background: #0078D7; }
+#connectBtn:hover { background: #005fa3; }
 
-/* 追加したボタンのスタイル */
-#downloadBackupBtn {
-    background: #28a745; /* 緑系 */
-}
-#downloadBackupBtn:hover {
-    background: #218838;
-}
-#loadFromFileBtn {
-    background: #17a2b8; /* 青緑系 */
-}
-#loadFromFileBtn:hover {
-    background: #138496;
-}
+#downloadBackupBtn { background: #28a745; }
+#downloadBackupBtn:hover { background: #218838; }
 
+#loadFromFileBtn { background: #17a2b8; }
+#loadFromFileBtn:hover { background: #138496; }
+
+/* ホームボタン */
+#homeBtn {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #6c757d;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+#homeBtn:hover {
+    background: #5a6268;
+}
 </style>
 </head>
 <body>
@@ -155,44 +162,37 @@ input[type="text"] {
         <button id="receiveModeBtn">受信モード</button>
     </div>
 
-    <!-- 送信モード -->
     <div id="sendMode" class="section">
         <h2>送信モード</h2>
         <p>1. 受信側で「受信モード」を選択し、表示された「自分のID」をコピーしてもらいます。</p>
         <p>2. 下の入力欄に、受信側のIDを貼り付けて「接続」ボタンを押してください。</p>
-        
-        <!-- P2P転送（相手のID入力） -->
         <input type="text" id="remotePeerId" placeholder="受信側のIDを入力">
         <button id="connectBtn">接続して送信</button>
 
         <hr style="border: 0; border-top: 1px solid #ddd; margin: 25px 0;">
-
-        <!-- ローカルダウンロード（追加機能） -->
         <p style="text-align:center; margin-bottom: 10px;">または、バックアップファイルをローカルに保存します。</p>
         <button id="downloadBackupBtn" class="action-btn">バックアップをローカルにダウンロード</button>
     </div>
 
-    <!-- 受信モード -->
     <div id="receiveMode" class="section">
         <h2>受信モード</h2>
         <p>1. 下に表示される「自分のID」をコピーして、送信側に伝えてください。</p>
         <p>2. 送信側が接続すると、自動的にデータが受信されます。</p>
 
-        <!-- P2P転送（自分のID表示） -->
         <div id="myPeerIdContainer">
             ID: <span id="myPeerId">取得中...</span>
             <button class="copyBtn" id="copyBtn">コピー</button>
         </div>
 
         <hr style="border: 0; border-top: 1px solid #ddd; margin: 25px 0;">
-
-        <!-- ローカルから読み込み（追加機能） -->
         <p style="text-align:center; margin-bottom: 10px;">または、ローカルのバックアップファイルから復元します。</p>
         <input type="file" id="backupFileInput" accept=".json" style="display:none;">
         <button id="loadFromFileBtn" class="action-btn">ローカルファイルから読み込み</button>
     </div>
 
     <div id="status" class="status">モードを選択してください</div>
+
+    <button id="homeBtn">🏠 ホームに戻る</button>
 </div>
 
 <script>
@@ -206,313 +206,175 @@ window.onload = () => {
     const remotePeerId = document.getElementById('remotePeerId');
     const connectBtn = document.getElementById('connectBtn');
     const status = document.getElementById('status');
-
-    // --- 追加した要素 ---
     const downloadBackupBtn = document.getElementById('downloadBackupBtn');
     const loadFromFileBtn = document.getElementById('loadFromFileBtn');
     const backupFileInput = document.getElementById('backupFileInput');
+    const homeBtn = document.getElementById('homeBtn');
 
     let peer = null;
-    // let peerIdTimer = null; // (修正) タイムアウト監視用 (削除)
 
-    // モード切り替え
     sendModeBtn.onclick = () => {
         sendMode.style.display = 'block';
         receiveMode.style.display = 'none';
         status.textContent = '送信モード。受信側のIDを入力してください。';
-        initializePeer(); // 送信側もP2P使うのでPeer初期化
+        initializePeer();
     };
 
     receiveModeBtn.onclick = () => {
         sendMode.style.display = 'none';
         receiveMode.style.display = 'block';
         status.textContent = '受信モード。Peer IDを取得中です...';
-        myPeerId.textContent = '取得中...'; // (追加) モード切替時にリセット
+        myPeerId.textContent = '取得中...';
         initializePeer();
     };
 
-    // PeerJSの初期化
     function initializePeer() {
-        if (peer) {
-            peer.destroy(); // 既存の接続を破棄
+        if (peer) peer.destroy();
+
+        // PeerJS公式サーバー + フォールバック
+        try {
+            peer = new Peer({
+                debug: 2,
+                config: {
+                    iceServers: [
+                        { urls: "stun:stun.l.google.com:19302" },
+                        { urls: "stun:stun1.l.google.com:19302" }
+                    ]
+                }
+            });
+        } catch (e) {
+            console.error("Peer init error:", e);
+            alert("Peer初期化に失敗しました。");
+            return;
         }
-        // (削除) タイムアウトタイマーのクリア処理
-        // if (peerIdTimer) {
-        //    clearTimeout(peerIdTimer);
-        // }
-
-        // (削除) タイムアウト処理
-        // peerIdTimer = setTimeout(() => { ... }, 10000);
-
-        // (修正) デフォルトのサーバーではなく、特定の公開サーバーを指定
-        // これにより接続が安定し、ID取得が早くなる可能性があります
-        peer = new Peer(undefined, { 
-            host: 'peerjs.AYC.ONE', 
-            port: 443, 
-            path: '/', 
-            secure: true 
-        });
 
         peer.on('open', id => {
-            // clearTimeout(peerIdTimer); // (削除) タイムアウトをクリア
+            if (!id) {
+                status.textContent = "Peer IDの取得に失敗しました。再試行してください。";
+                myPeerId.textContent = "取得失敗";
+                return;
+            }
             if (receiveMode.style.display === 'block') {
                 myPeerId.textContent = id;
                 status.textContent = '受信待機中。上記のIDを送信側に伝えてください。';
             }
         });
 
-        // データ受信時の処理 (P2P)
         peer.on('connection', conn => {
             status.textContent = '接続されました。データ受信中...';
             conn.on('data', data => {
                 try {
                     restoreFromBackup(data);
-                    status.textContent = 'データ受信完了。正常に復元されました。';
+                    status.textContent = 'データ受信完了。';
                     alert('バックアップから復元しました。');
                 } catch (e) {
-                    status.textContent = `エラー: データの復元に失敗しました。 ${e.message}`;
-                    console.error(e);
-                    alert('データの形式が正しくないため、復元に失敗しました。');
+                    alert('復元に失敗しました: ' + e.message);
+                    status.textContent = '復元失敗';
                 }
             });
         });
 
-        // (修正) エラーハンドリングを詳細化
         peer.on('error', err => {
-            // clearTimeout(peerIdTimer); // (削除) エラー時もタイマーをクリア
-            
-            let errorMessage = `P2Pエラー: ${err.type}`;
-            console.error('PeerJS error:', err);
-            
-            if (err.type === 'peer-unavailable') {
-                errorMessage = '指定されたIDが見つかりません。';
-                alert(errorMessage);
-            } else if (err.type === 'network') {
-                errorMessage = 'ネットワーク接続に問題があるか、P2Pサーバーに接続できません。';
-                alert(errorMessage);
-            } else if (err.type === 'server-error' || err.type === 'socket-error' || err.type === 'browser-incompatible') {
-                errorMessage = 'P2Pサーバーとの接続に失敗しました。ブラウザが非対応か、時間をおいて再試行してください。';
-                alert(errorMessage);
-            } else if (err.type === 'disconnected') {
-                 errorMessage = 'P2Pサーバーから切断されました。';
-            } else {
-                 alert(`不明なP2Pエラーが発生しました: ${err.type}`);
-            }
-            
-            status.textContent = errorMessage;
-            
-            // 受信モードでID取得に失敗した場合
-            if (receiveMode.style.display === 'block') {
-                myPeerId.textContent = '取得失敗';
-            }
+            console.error(err);
+            status.textContent = "P2Pエラー: " + err.type;
+            myPeerId.textContent = "取得失敗";
         });
     }
 
-    // 接続ボタン (データ送信)
     connectBtn.onclick = () => {
-        if (!peer || peer.destroyed) { // (修正) peerが破棄されていないかもチェック
+        if (!peer || peer.destroyed) {
             status.textContent = 'Peerが初期化されていません。モードを再度選択してください。';
             return;
         }
-        const remoteId = remotePeerId.value;
+        const remoteId = remotePeerId.value.trim();
         if (!remoteId) {
             alert('受信側のIDを入力してください。');
             return;
         }
 
-        status.textContent = '接続中...';
         const conn = peer.connect(remoteId);
-
+        status.textContent = '接続中...';
         conn.on('open', () => {
-            status.textContent = '接続完了。データを送信中...';
-            try {
-                // (修正) 全プロファイルのデータをバックアップする
-                const allData = {};
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    // 'memoapp_' で始まるキー（プロファイルデータや設定）を対象
-                    if (key.startsWith('memoapp_')) {
-                        allData[key] = localStorage.getItem(key);
-                    }
-                }
-
-                if (Object.keys(allData).length === 0) {
-                     alert('送信するデータがありません。');
-                     status.textContent = '送信データがありませんでした。';
-                     conn.close();
-                     return;
-                }
-
-                conn.send(allData); // 全データを送信
-                status.textContent = 'データ送信完了。';
-            } catch (e) {
-                status.textContent = `エラー: データの取得または送信に失敗しました。 ${e.message}`;
-                console.error(e);
-            }
-        });
-
-        conn.on('error', err => {
-            status.textContent = `接続エラー: ${err.type}`;
-            console.error('Connection error:', err);
-        });
-    };
-
-    // IDコピーボタン
-    copyBtn.onclick = () => {
-        if (myPeerId.textContent === '取得中...' || myPeerId.textContent === '取得失敗') {
-            alert('IDがまだ取得できていません。');
-            return;
-        }
-        navigator.clipboard.writeText(myPeerId.textContent).then(() => {
-            alert('IDをクリップボードにコピーしました。');
-        }).catch(err => {
-            alert('コピーに失敗しました。');
-            console.error('Copy failed:', err);
-        });
-    };
-
-    // --- バックアップデータの復元（共通関数） ---
-    // (修正) 複数のプロファイルデータ(allData)を復元できるように変更
-    function restoreFromBackup(data) {
-        if (typeof data !== 'object' || data === null) {
-            throw new Error('無効なデータ形式です (Not an object)');
-        }
-
-        // (重要) 現在のデータを消去する前に確認する
-        let keysToClear = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            if (localStorage.key(i).startsWith('memoapp_')) {
-                keysToClear.push(localStorage.key(i));
-            }
-        }
-        
-        if (keysToClear.length > 0) {
-            if (!window.confirm('現在のすべてのプロファイルとメモデータを、バックアップファイルの内容で上書きします。よろしいですか？')) {
-                throw new Error('復元がキャンセルされました。');
-            }
-        }
-
-        // 現在の 'memoapp_' データをすべて消去
-        keysToClear.forEach(key => {
-            localStorage.removeItem(key);
-        });
-
-        // バックアップデータから復元
-        let restoredCount = 0;
-        for (const key in data) {
-            // 'memoapp_' で始まるキーのみを復元
-            if (key.startsWith('memoapp_') && typeof data[key] === 'string') {
-                localStorage.setItem(key, data[key]);
-                restoredCount++;
-            }
-        }
-        
-        if (restoredCount === 0) {
-            throw new Error('バックアップデータに有効なメモデータが含まれていませんでした。');
-        }
-    }
-
-
-    // --- (追加機能) バックアップをダウンロード ---
-    downloadBackupBtn.onclick = () => {
-        try {
-            // (修正) 全プロファイルのデータをバックアップする
             const allData = {};
-            let hasData = false;
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (key.startsWith('memoapp_')) {
                     allData[key] = localStorage.getItem(key);
-                    hasData = true;
                 }
             }
-            
-            if (!hasData) {
-                alert('バックアップするデータがありません。');
+            if (Object.keys(allData).length === 0) {
+                alert('送信するデータがありません。');
+                status.textContent = '送信データなし。';
                 return;
             }
-
-            const jsonString = JSON.stringify(allData, null, 2);
-            const blob = new Blob([jsonString], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            
-            // 日付からファイル名を生成
-            const date = new Date();
-            const Y = date.getFullYear();
-            const M = (date.getMonth() + 1).toString().padStart(2, '0');
-            const D = date.getDate().toString().padStart(2, '0');
-            const h = date.getHours().toString().padStart(2, '0');
-            const m = date.getMinutes().toString().padStart(2, '0');
-            
-            a.download = `memo_backup_all_${Y}${M}${D}_${h}${m}.json`;
-            
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            
-            URL.revokeObjectURL(url);
-            
-            status.textContent = 'バックアップファイルをダウンロードしました。';
-
-        } catch (e) {
-            status.textContent = `ダウンロードエラー: ${e.message}`;
-            console.error(e);
-            alert('バックアップファイルの作成に失敗しました。');
-        }
+            conn.send(allData);
+            status.textContent = 'データ送信完了。';
+            alert('データを送信しました。');
+        });
     };
 
-    // --- (追加機能) ローカルファイルから読み込み ---
-    
-    // 読み込みボタンがクリックされたら、非表示のファイル入力をクリックする
-    loadFromFileBtn.onclick = () => {
-        backupFileInput.click();
-    };
-
-    // ファイルが選択された時の処理
-    backupFileInput.onchange = (event) => {
-        const file = event.target.files[0];
-        if (!file) {
+    copyBtn.onclick = () => {
+        const text = myPeerId.textContent;
+        if (!text || text.includes('取得')) {
+            alert('まだIDを取得していません。');
             return;
         }
+        navigator.clipboard.writeText(text);
+        alert('IDをコピーしました。');
+    };
 
-        const reader = new FileReader();
-        
-        reader.onload = (e) => {
-            try {
-                const text = e.target.result;
-                const data = JSON.parse(text);
-                
-                // 復元処理
-                restoreFromBackup(data);
-                
-                status.textContent = `ファイル (${file.name}) からデータを復元しました。`;
-                alert('バックアップファイルからデータを復元しました。\n(ホーム画面に戻ると反映されます)');
-
-            } catch (err) {
-                status.textContent = `ファイル読み込みエラー: ${err.message}`;
-                console.error(err);
-                alert(`ファイルの形式が正しくないか、読み込みに失敗しました。\n${err.message}`);
-            } finally {
-                // 同じファイルを連続で選択できるように値をリセット
-                event.target.value = null;
+    function restoreFromBackup(data) {
+        if (typeof data !== 'object') throw new Error('不正なデータ形式');
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith('memoapp_')) localStorage.removeItem(key);
+        }
+        for (const key in data) {
+            if (key.startsWith('memoapp_')) {
+                localStorage.setItem(key, data[key]);
             }
-        };
+        }
+    }
 
-        reader.onerror = () => {
-            status.textContent = 'ファイルの読み込みに失敗しました。';
-            alert('ファイルの読み込みに失敗しました。');
-            event.target.value = null;
-        };
+    downloadBackupBtn.onclick = () => {
+        const allData = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith('memoapp_')) allData[key] = localStorage.getItem(key);
+        }
+        if (Object.keys(allData).length === 0) {
+            alert('バックアップするデータがありません。');
+            return;
+        }
+        const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const d = new Date();
+        const fname = `memo_backup_${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getDate().toString().padStart(2,'0')}_${d.getHours()}${d.getMinutes()}.json`;
+        a.href = url;
+        a.download = fname;
+        a.click();
+        URL.revokeObjectURL(url);
+        status.textContent = 'バックアップをダウンロードしました。';
+    };
 
+    loadFromFileBtn.onclick = () => backupFileInput.click();
+    backupFileInput.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const data = JSON.parse(ev.target.result);
+            restoreFromBackup(data);
+            alert('ローカルファイルから復元しました。');
+        };
         reader.readAsText(file);
+    };
+
+    homeBtn.onclick = () => {
+        window.location.href = "index.html";
     };
 };
 </script>
-
 </body>
 </html>
-
-
