@@ -2,151 +2,272 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Memo Backup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>バックアップ転送 - メモアプリ</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdn.ably.io/lib/ably.min-1.js"></script>
 <style>
-  body {
-    font-family: "Segoe UI", sans-serif;
-    background: #f2f2f7;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-  }
-  .container {
-    width: 95%;
-    max-width: 480px;
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    padding: 16px;
-  }
-  h1 {
-    font-size: 1.3em;
-    margin-bottom: 10px;
-    text-align: center;
-  }
-  textarea {
-    width: 100%;
-    height: 150px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    padding: 8px;
-    resize: none;
-  }
-  button {
-    width: 100%;
-    margin-top: 10px;
-    padding: 10px;
-    border: none;
-    border-radius: 10px;
-    background: #007aff;
-    color: white;
-    font-size: 1em;
-    cursor: pointer;
-  }
-  button:hover {
-    background: #005ecc;
-  }
-  .status {
-    text-align: center;
-    margin-top: 6px;
-    font-size: 0.9em;
-    color: #555;
-  }
-  .peer-info {
-    text-align: center;
-    margin-top: 8px;
-    font-size: 0.8em;
-    color: #666;
-  }
+body {
+    font-family: "Segoe UI", "Noto Sans JP", sans-serif;
+    margin:0; padding:20px;
+    background:#f3f4f6;
+    color: #333;
+}
+.container {
+    max-width:700px;
+    margin:0 auto;
+    background:white;
+    padding:20px 30px;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.1);
+}
+h1 { text-align:center; margin-top:0; color:#111; }
+.mode-section { display:flex; gap:10px; justify-content:center; margin-bottom:20px; flex-wrap:wrap; }
+.mode-section button { flex:1 1 45%; min-width:140px; padding:12px; font-size:16px; font-weight:500; cursor:pointer; border:none; border-radius:8px; background:#0078D7; color:white; transition: background-color 0.2s;}
+.mode-section button:hover { background:#005fa3; }
+
+.section { display:none; margin-top:20px; padding:20px; border-radius:10px; background:#f9fafb; border:1px solid #e5e7eb; }
+.section h2 { margin-top:0; text-align:center; color:#333; }
+
+.status { margin-top:20px; padding:10px 15px; border-radius:6px; background:#eee; font-size:14px; text-align:center; word-wrap: break-word; }
+
+#myPeerIdContainer { display:flex; gap:10px; align-items:center; margin-bottom:15px; flex-wrap:wrap; justify-content:center; background:#fff; padding:10px; border-radius:8px; border:1px solid #ddd; }
+#myPeerId { font-weight:bold; font-size:1.1em; color:#005fa3; word-break: break-all; }
+button.copyBtn { background:#4CAF50; color:white; padding:6px 10px; font-size:14px; border-radius:4px; border:none; cursor:pointer; }
+button.copyBtn:hover { background:#357a38; }
+
+input[type="text"], input[type="file"] { width:100%; padding:8px 10px; margin-top:6px; border-radius:6px; border:1px solid #ccc; font-size:14px; box-sizing:border-box; margin-bottom:15px; }
+
+button.action-btn { width:100%; padding:10px; font-size:16px; cursor:pointer; border:none; border-radius:8px; color:white; margin-top:10px; transition:background-color 0.2s; }
+#sendBackupBtn { background:#0078D7; }
+#sendBackupBtn:hover { background:#005fa3; }
+#downloadBackupBtn { background:#28a745; }
+#downloadBackupBtn:hover { background:#218838; }
+#restoreBackupBtn { background:#17a2b8; }
+#restoreBackupBtn:hover { background:#138496; }
+#clearDataBtn { background:#dc3545; }
+#clearDataBtn:hover { background:#a71d2a; }
+#homeBtn { background:#6c757d; }
+#homeBtn:hover { background:#495057; }
+
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>📦 Memo Backup</h1>
-  <textarea id="memo" placeholder="ここにメモを入力または受信データが表示されます"></textarea>
-  <button id="saveBtn">💾 ローカル保存</button>
-  <button id="sendBtn">📤 送信</button>
-  <button id="receiveBtn">📥 受信</button>
-  <div class="status" id="status">状態: 準備中...</div>
-  <div class="peer-info" id="peerInfo"></div>
+    <h1>バックアップ転送</h1>
+
+    <div class="mode-section">
+        <button id="sendModeBtn">送信モード</button>
+        <button id="receiveModeBtn">受信モード</button>
+    </div>
+
+    <!-- 送信モード -->
+    <div id="sendMode" class="section">
+        <h2>送信モード</h2>
+        <p>受信側のPeerIDを入力して送信します。</p>
+        <input type="text" id="remotePeerId" placeholder="受信側のIDを入力">
+        <button id="sendBackupBtn" class="action-btn">Peerに送信</button>
+
+        <hr>
+
+        <p style="text-align:center;">または、バックアップをローカルにダウンロードします。</p>
+        <button id="downloadBackupBtn" class="action-btn">バックアップをダウンロード</button>
+    </div>
+
+    <!-- 受信モード -->
+    <div id="receiveMode" class="section">
+        <h2>受信モード</h2>
+        <p>自分のIDを送信側に伝えてください。</p>
+        <div id="myPeerIdContainer">
+            ID: <span id="myPeerId">取得中...</span>
+            <button class="copyBtn" id="copyBtn">コピー</button>
+        </div>
+
+        <input type="file" id="backupFileInput" accept=".dat" style="display:none;">
+        <button id="restoreBackupBtn" class="action-btn">復元</button>
+    </div>
+
+    <hr>
+
+    <button id="clearDataBtn" class="action-btn">初期化</button>
+    <button id="homeBtn" class="action-btn">ホームへ戻る</button>
+
+    <div id="status" class="status">モードを選択してください</div>
 </div>
 
-<!-- PeerJS / Ably -->
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/ably/browser/static/ably.min.js"></script>
 <script>
-const statusEl = document.getElementById("status");
-const peerInfo = document.getElementById("peerInfo");
-const memoEl = document.getElementById("memo");
+window.onload = () => {
+    const sendModeBtn = document.getElementById('sendModeBtn');
+    const receiveModeBtn = document.getElementById('receiveModeBtn');
+    const sendMode = document.getElementById('sendMode');
+    const receiveMode = document.getElementById('receiveMode');
+    const status = document.getElementById('status');
 
-const ably = new Ably.Realtime("NQn9Eg.Bx1JEw:rrRNPzzOZAoe0wTDztCjCtsH_vwPxtOjPLZOiORKmTA");
-const channel = ably.channels.get("memo-backup");
+    const remotePeerId = document.getElementById('remotePeerId');
+    const sendBackupBtn = document.getElementById('sendBackupBtn');
+    const downloadBackupBtn = document.getElementById('downloadBackupBtn');
 
-const peer = new Peer();
-let myId = "";
-let conn = null;
+    const myPeerIdSpan = document.getElementById('myPeerId');
+    const copyBtn = document.getElementById('copyBtn');
+    const restoreBackupBtn = document.getElementById('restoreBackupBtn');
+    const backupFileInput = document.getElementById('backupFileInput');
 
-// Peer初期化
-peer.on("open", id => {
-  myId = id;
-  peerInfo.textContent = `あなたのPeerID: ${id}`;
-  statusEl.textContent = "状態: 待機中";
-  channel.publish("peer-status", { id, status: "online" });
-});
+    const clearDataBtn = document.getElementById('clearDataBtn');
+    const homeBtn = document.getElementById('homeBtn');
 
-// 受信側
-peer.on("connection", c => {
-  conn = c;
-  statusEl.textContent = "状態: 接続中";
-  c.on("data", data => {
-    memoEl.value = data.memo;
-    localStorage.setItem("memoData", data.memo);
-    statusEl.textContent = "📥 データ受信完了";
-    channel.publish("memo-received", { from: data.from });
-  });
-});
+    let peer = null;
+    let ably = new Ably.Realtime('NQn9Eg.Bx1JEw:rrRNPzzOZAoe0wTDztCjCtsH_vwPxtOjPLZOiORKmTA');
+    let channel = ably.channels.get('memo-backup');
 
-// 保存
-document.getElementById("saveBtn").onclick = () => {
-  const text = memoEl.value.trim();
-  if (!text) return alert("メモが空です");
-  localStorage.setItem("memoData", text);
-  alert("ローカルに保存しました");
+    // --- モード切替 ---
+    sendModeBtn.onclick = () => {
+        sendMode.style.display = 'block';
+        receiveMode.style.display = 'none';
+        status.textContent = '送信モード。受信側のIDを入力してください。';
+        initializePeer();
+    };
+    receiveModeBtn.onclick = () => {
+        sendMode.style.display = 'none';
+        receiveMode.style.display = 'block';
+        status.textContent = '受信モード。PeerIDを取得中...';
+        myPeerIdSpan.textContent = '取得中...';
+        initializePeer();
+    };
+
+    // --- Peer初期化 ---
+    function initializePeer() {
+        if(peer) peer.destroy();
+        peer = new Peer(undefined, {
+            host: 'peerjs.AYC.ONE',
+            port: 443,
+            path: '/',
+            secure: true
+        });
+
+        peer.on('open', id => {
+            if(receiveMode.style.display==='block') {
+                myPeerIdSpan.textContent = id;
+                status.textContent = '受信待機中。送信側にIDを伝えてください。';
+            }
+        });
+
+        peer.on('connection', conn => {
+            status.textContent = '接続されました。データ受信中...';
+            conn.on('data', data => {
+                try {
+                    const blob = new Blob([JSON.stringify(data)], {type:'application/dat'});
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'memo_backup.dat';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    status.textContent = 'データ受信完了。復元ボタンで反映できます。';
+                } catch(e){
+                    console.error(e);
+                    status.textContent = '受信データの処理に失敗しました。';
+                }
+            });
+        });
+
+        peer.on('error', err=>{
+            console.error(err);
+            status.textContent = 'Peerエラー: '+err.type;
+            if(receiveMode.style.display==='block') myPeerIdSpan.textContent='取得失敗';
+        });
+    }
+
+    // --- IDコピー ---
+    copyBtn.onclick = ()=>{
+        const id = myPeerIdSpan.textContent;
+        if(id==='取得中...' || id==='取得失敗'){ alert('IDがまだ取得できません'); return; }
+        navigator.clipboard.writeText(id).then(()=>alert('IDをコピーしました'));
+    };
+
+    // --- 送信 ---
+    sendBackupBtn.onclick = ()=>{
+        if(!peer || peer.destroyed){ status.textContent='Peerが初期化されていません'; return; }
+        const remoteId = remotePeerId.value.trim();
+        if(!remoteId){ alert('受信側IDを入力してください'); return; }
+        status.textContent='接続中...';
+        const conn = peer.connect(remoteId);
+        conn.on('open', ()=>{
+            // localStorage全データ取得
+            const allData = {};
+            for(let i=0;i<localStorage.length;i++){
+                const key = localStorage.key(i);
+                allData[key] = localStorage.getItem(key);
+            }
+            if(Object.keys(allData).length===0){
+                alert('送信するデータがありません');
+                status.textContent='送信データなし';
+                conn.close();
+                return;
+            }
+            conn.send(allData);
+            status.textContent='データ送信完了';
+            channel.publish('sent', {to:remoteId, count:Object.keys(allData).length});
+        });
+        conn.on('error', err=>{ status.textContent='接続エラー: '+err.type; console.error(err); });
+    };
+
+    // --- ダウンロード ---
+    downloadBackupBtn.onclick = ()=>{
+        const allData = {};
+        for(let i=0;i<localStorage.length;i++){
+            const key = localStorage.key(i);
+            allData[key] = localStorage.getItem(key);
+        }
+        if(Object.keys(allData).length===0){ alert('バックアップするデータがありません'); return; }
+        const blob = new Blob([JSON.stringify(allData, null, 2)], {type:'application/dat'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'memo_backup.dat';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        status.textContent='バックアップをダウンロードしました';
+    };
+
+    // --- 復元 ---
+    restoreBackupBtn.onclick = ()=>{
+        backupFileInput.click();
+    };
+    backupFileInput.onchange = (e)=>{
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev)=>{
+            try{
+                const data = JSON.parse(ev.target.result);
+                if(confirm('現在のデータをすべて上書きして復元しますか？')){
+                    localStorage.clear();
+                    for(const key in data){
+                        localStorage.setItem(key, data[key]);
+                    }
+                    alert('データを復元しました');
+                    status.textContent='復元完了';
+                }
+            }catch(err){
+                alert('復元に失敗しました: '+err.message);
+                status.textContent='復元エラー';
+            }finally{ backupFileInput.value=null; }
+        };
+        reader.readAsText(file);
+    };
+
+    // --- 初期化 ---
+    clearDataBtn.onclick = ()=>{
+        if(confirm('localStorageを全て削除して初期化しますか？')){
+            localStorage.clear();
+            alert('データを初期化しました');
+            status.textContent='データ初期化完了';
+        }
+    };
+
+    // --- ホームへ戻る ---
+    homeBtn.onclick = ()=>{
+        location.href = 'home.html';
+    };
 };
-
-// 送信
-document.getElementById("sendBtn").onclick = async () => {
-  const memo = localStorage.getItem("memoData");
-  if (!memo || memo.trim() === "") {
-    alert("送信できるデータがありません（なし）");
-    return;
-  }
-  const target = prompt("送信先PeerIDを入力してください:");
-  if (!target) return;
-  const c = peer.connect(target);
-  c.on("open", () => {
-    c.send({ from: myId, memo });
-    alert("送信しました ✅");
-    channel.publish("memo-sent", { from: myId, to: target });
-  });
-};
-
-// 受信モード
-document.getElementById("receiveBtn").onclick = () => {
-  alert(`この端末のPeerIDを相手に教えてください。\nPeerID: ${myId}`);
-  statusEl.textContent = "状態: 受信待機中...";
-};
-
-// Ably通知受信
-channel.subscribe("memo-sent", msg => {
-  console.log("送信通知:", msg.data);
-});
-channel.subscribe("memo-received", msg => {
-  console.log("受信通知:", msg.data);
-});
 </script>
 </body>
 </html>
