@@ -10,7 +10,7 @@
 
     <div class="assistant-container">
         <h1 id="assistantTitle">PWA アシスタント</h1>
-        <p id="assistantMessage"></p>
+        <p id="assistantMessage">状態を確認しています...</p>
     
         <div id="buttonContainer"></div>
     
@@ -21,72 +21,23 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const action = sessionStorage.getItem('pwaInstallAction');
             const buttonContainer = document.getElementById('buttonContainer');
             const messageEl = document.getElementById('message');
             const titleEl = document.getElementById('assistantTitle');
             const msgEl = document.getElementById('assistantMessage');
             
-            let installPromptEvent = null; // インストールプロンプトのイベントを保持
+            let installPromptEvent = null; // インストールプロンプトのイベント
 
-            // このページ（install.html）でインストールプロンプトをリッスン
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault(); // デフォルトのプロンプトを抑制
-                installPromptEvent = e;
-                const installBtn = document.getElementById('installActionBtn');
-                
-                // インストールボタンが既に画面にあれば、有効化する
-                if (installBtn) {
-                    installBtn.disabled = false; 
-                    msgEl.textContent = '準備ができました。下のボタンを押してインストールしてください。';
-                }
-            });
+            // PWAがスタンドアロンモード（インストール済み）かチェック
+            const isPwaInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
-            // home.htmlから渡されたアクションに応じて表示を切り替え
-            if (action === 'install') {
-                titleEl.textContent = 'PWAをインストール';
-                
-                const installBtn = document.createElement('button');
-                installBtn.id = 'installActionBtn';
-                installBtn.textContent = 'インストール';
-                installBtn.className = 'pwa-button install-btn'; // install.html用のスタイル
-                
-                // このページで 'beforeinstallprompt' が発火するまでボタンは無効
-                installBtn.disabled = true; 
-                msgEl.textContent = 'インストールの準備をしています...';
+            // --- 関数定義 ---
 
-                installBtn.addEventListener('click', async () => {
-                    if (!installPromptEvent) {
-                        messageEl.textContent = 'インストールプロンプトを取得できませんでした。ブラウザが対応していない可能性があります。';
-                        messageEl.style.display = 'block';
-                        return;
-                    }
-                    installBtn.disabled = true;
-                    
-                    // PWAインストールダイアログを表示
-                    installPromptEvent.prompt(); 
-                    
-                    const { outcome } = await installPromptEvent.userChoice;
-                    
-                    if (outcome === 'accepted') {
-                        messageEl.textContent = 'インストールが完了しました。ホームに戻ります。';
-                        sessionStorage.removeItem('pwaInstallAction');
-                        sessionStorage.removeItem('pwaInstallReady'); // インストール済み
-                        setTimeout(() => { window.location.href = 'home.html'; }, 2000);
-                    } else {
-                        messageEl.textContent = 'インストールがキャンセルされました。';
-                        installBtn.disabled = false;
-                    }
-                    installPromptEvent = null; // 一度使うと無効になる
-                    messageEl.style.display = 'block';
-                });
-                buttonContainer.appendChild(installBtn);
-
-            } else if (action === 'uninstall') {
+            // 1. アンインストール画面を表示する関数
+            function showUninstallUI() {
                 titleEl.textContent = 'PWAをアンインストール';
-                msgEl.innerHTML = 'アプリのアンインストールは、ブラウザまたはOSの設定から手動で行う必要があります。';
+                msgEl.innerHTML = 'アプリはインストール済みです。<br>アンインストールは、ブラウザまたはOSの設定から手動で行う必要があります。';
                 
-                // アンインストール手順の表示
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'instructions';
                 infoDiv.innerHTML = `
@@ -100,25 +51,96 @@
                 `;
                 buttonContainer.appendChild(infoDiv);
 
-                // ホームに戻るボタン（赤色）
                 const uninstallBtn = document.createElement('button');
                 uninstallBtn.textContent = '手順を理解しました (ホームに戻る)';
-                uninstallBtn.className = 'pwa-button uninstall-btn'; // install.html用のスタイル
+                uninstallBtn.className = 'pwa-button uninstall-btn'; // 赤色
                 
                 uninstallBtn.addEventListener('click', () => {
                     window.location.href = 'home.html';
                 });
                 buttonContainer.appendChild(uninstallBtn);
-
-            } else {
-                // sessionStorageに 'action' がない場合
-                msgEl.textContent = '無効な操作です。ホームに戻ります。';
-                setTimeout(() => { window.location.href = 'home.html'; }, 2000);
             }
 
-            // 共通のキャンセルボタン
+            // 2. インストール画面を表示する関数
+            function showInstallUI() {
+                titleEl.textContent = 'PWAをインストール';
+                
+                const installBtn = document.createElement('button');
+                installBtn.id = 'installActionBtn';
+                installBtn.textContent = 'インストール';
+                installBtn.className = 'pwa-button install-btn'; // 緑色
+                
+                // プロンプトがまだ来ていない場合は無効化
+                installBtn.disabled = !installPromptEvent; 
+                msgEl.textContent = installPromptEvent 
+                    ? '準備ができました。下のボタンを押してインストールしてください。'
+                    : 'インストールの準備をしています... (プロンプト待機中)';
+
+                installBtn.addEventListener('click', async () => {
+                    if (!installPromptEvent) return;
+                    
+                    installBtn.disabled = true;
+                    installPromptEvent.prompt(); // インストールダイアログを表示
+                    
+                    const { outcome } = await installPromptEvent.userChoice;
+                    
+                    if (outcome === 'accepted') {
+                        messageEl.textContent = 'インストールが完了しました。ホームに戻ります。';
+                        setTimeout(() => { window.location.href = 'home.html'; }, 2000);
+                    } else {
+                        messageEl.textContent = 'インストールがキャンセルされました。';
+                        installBtn.disabled = false;
+                    }
+                    installPromptEvent = null; // プロンプトは一度しか使えない
+                    messageEl.style.display = 'block';
+                });
+                buttonContainer.appendChild(installBtn);
+            }
+
+            // --- メイン実行ロジック ---
+
+            // A. 既にインストール済みの場合
+            if (isPwaInstalled) {
+                showUninstallUI();
+            
+            // B. まだインストールされていない場合
+            } else {
+                
+                // B-1. インストールプロンプトを待機
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault(); // デフォルトのプロンプトを抑制
+                    installPromptEvent = e; // イベントを保持
+                    
+                    // UIがまだ構築されていなければ構築する
+                    if (!document.getElementById('installActionBtn')) {
+                        buttonContainer.innerHTML = ''; // 「状態を確認...」をクリア
+                        showInstallUI();
+                    } else {
+                        // 既に「準備中」のUIが表示されていれば、ボタンを有効化
+                        document.getElementById('installActionBtn').disabled = false;
+                        msgEl.textContent = '準備ができました。下のボタンを押してインストールしてください。';
+                    }
+                });
+
+                // B-2. (プロンプトが来る前に) 先に「準備中」のインストールUIを表示
+                showInstallUI();
+
+                // B-3. (補足) 一定時間待ってもプロンプトが来ない場合
+                // (例: 既にインストールを拒否済み、非対応ブラウザなど)
+                setTimeout(() => {
+                    if (!installPromptEvent && !isPwaInstalled) {
+                        // ボタンがまだ無効 (disabled) なら
+                        const installBtn = document.getElementById('installActionBtn');
+                        if (installBtn && installBtn.disabled) {
+                            msgEl.textContent = 'PWAインストールに対応していないか、過去にインストールを拒否している可能性があります。';
+                            installBtn.textContent = '利用不可';
+                        }
+                    }
+                }, 3000); // 3秒待機
+            }
+
+            // キャンセルボタン（共通）
             document.getElementById('cancelBtn').addEventListener('click', () => {
-                sessionStorage.removeItem('pwaInstallAction');
                 window.location.href = 'home.html';
             });
         });
