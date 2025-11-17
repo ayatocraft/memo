@@ -3,179 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PWA インストールアシスタント</title>
-    <link rel="stylesheet" href="style.css"> 
+    <title>ホーム - メモアプリ(build 25.11.18)</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+    
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #f4f7f6;
-            margin: 0;
-        }
-        .assistant-container {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 400px;
-            width: 90%;
-        }
-        .pwa-button {
+        /* 念のため、style.css にこのスタイルがない場合用 */
+        .pwa-options-btn {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-weight: bold;
-            font-size: 1rem;
-            margin-top: 1rem;
+            margin-bottom: 10px;
             box-sizing: border-box;
-        }
-        .install-btn {
-            background-color: #4CAF50; /* 緑 */
-            color: white;
-        }
-        .install-btn:disabled {
-            background-color: #aaa;
-            cursor: not-allowed;
-        }
-        .uninstall-btn {
-            background-color: #f44336; /* 赤 */
-            color: white;
-        }
-        .cancel-btn {
-            background-color: #e0e0e0;
-            color: #333;
-            margin-top: 0.5rem;
-        }
-        #message {
-            margin-top: 1rem;
-            color: #555;
             font-size: 0.9rem;
-        }
-        .instructions {
+            /* style.css の .install-btn や .uninstall-btn と被らない中間色 */
+            background-color: #6c757d; 
+            color: white;
             text-align: left;
-            font-size: 0.9rem;
-            background: #f9f9f9;
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 1rem;
+        }
+        .pwa-options-btn:hover {
+            background-color: #5a6268;
         }
     </style>
 </head>
 <body>
+    <div class="container">
+        <aside class="sidebar">
+            <h2>Memo</h2>
+            <button id="newMemoBtn">新しいメモを作成 +</button>
+            <nav>
+                <h3>メモ一覧</h3>
+                <ul id="memoList"></ul>
+                <h3>アーカイブ</h3>
+                <ul id="archiveList"></ul>
+            </nav>
 
-    <div class="assistant-container">
-        <h1 id="assistantTitle">PWA アシスタント</h1>
-        <p id="assistantMessage"></p>
-    
-        <div id="buttonContainer"></div>
-    
-        <button id="cancelBtn" class="pwa-button cancel-btn">キャンセル (ホームに戻る)</button>
-    
-        <p id="message" style="display:none;"></p>
+            <div class="backup-section">
+                <hr>
+                
+                <button id="pwaOptionsBtn" class="pwa-options-btn">📱 PWAオプション</button>
+                <button id="backupBtn" class="backup-btn">💾 バックアップのオプション</button>
+            </div>
+        </aside>
+
+        <main class="content">
+            <div id="memoGrid" class="memo-grid"></div>
+
+            <div id="welcomeMessage" class="welcome hidden">
+                <h1>ようこそ</h1>
+                <p>「新しいメモを作成」から最初のメモを作りましょう。</p>
+            </div>
+        </main>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const action = sessionStorage.getItem('pwaInstallAction');
-            const buttonContainer = document.getElementById('buttonContainer');
-            const messageEl = document.getElementById('message');
-            const titleEl = document.getElementById('assistantTitle');
-            const msgEl = document.getElementById('assistantMessage');
-            
-            let installPromptEvent = null;
-
-            // このページでインストールプロンプトをリッスン
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                installPromptEvent = e;
-                const installBtn = document.getElementById('installActionBtn');
-                if (installBtn) {
-                    installBtn.disabled = false; // ボタンを有効化
-                    msgEl.textContent = '準備ができました。下のボタンを押してインストールしてください。';
-                }
-            });
-
-            if (action === 'install') {
-                titleEl.textContent = 'PWAをインストール';
-                
-                const installBtn = document.createElement('button');
-                installBtn.id = 'installActionBtn';
-                installBtn.textContent = 'インストール';
-                installBtn.className = 'pwa-button install-btn';
-                
-                // (home.htmlでキャプチャ済みでも) このページで再度キャプチャするまで待つ
-                installBtn.disabled = true; 
-                msgEl.textContent = 'インストールの準備をしています...';
-
-                installBtn.addEventListener('click', async () => {
-                    if (!installPromptEvent) {
-                        messageEl.textContent = 'インストールプロンプトを取得できませんでした。ブラウザが対応していない可能性があります。';
-                        messageEl.style.display = 'block';
-                        return;
-                    }
-                    installBtn.disabled = true;
-                    installPromptEvent.prompt(); // インストールダイアログを表示
-                    
-                    const { outcome } = await installPromptEvent.userChoice;
-                    
-                    if (outcome === 'accepted') {
-                        messageEl.textContent = 'インストールが完了しました。ホームに戻ります。';
-                        sessionStorage.removeItem('pwaInstallAction');
-                        sessionStorage.removeItem('pwaInstallReady'); // インストール済み
-                        setTimeout(() => { window.location.href = 'home.html'; }, 2000);
-                    } else {
-                        messageEl.textContent = 'インストールがキャンセルされました。';
-                        installBtn.disabled = false;
-                    }
-                    installPromptEvent = null;
-                    messageEl.style.display = 'block';
-                });
-                buttonContainer.appendChild(installBtn);
-
-            } else if (action === 'uninstall') {
-                titleEl.textContent = 'PWAをアンインストール';
-                msgEl.innerHTML = 'アプリのアンインストールは、ブラウザまたはOSの設定から手動で行う必要があります。';
-                
-                const infoDiv = document.createElement('div');
-                infoDiv.className = 'instructions';
-                infoDiv.innerHTML = `
-                    <p><strong>一般的なアンインストール手順:</strong></p>
-                    <p><strong>PC (Chrome) の場合:</strong><br>
-                    1. アドレスバーに <code>chrome://apps</code> と入力<br>
-                    2. 「メモアプリ」を右クリック<br>
-                    3. 「Chrome から削除」を選択</p>
-                    <p><strong>スマートフォンの場合:</strong><br>
-                    ホーム画面のアプリアイコンを長押しし、「アンインストール」または「アプリを削除」を選択してください。</p>
-                `;
-                buttonContainer.appendChild(infoDiv);
-
-                const uninstallBtn = document.createElement('button');
-                uninstallBtn.textContent = '手順を理解しました (ホームに戻る)';
-                uninstallBtn.className = 'pwa-button uninstall-btn'; // 赤色
-                
-                uninstallBtn.addEventListener('click', () => {
-                    window.location.href = 'home.html';
-                });
-                buttonContainer.appendChild(uninstallBtn);
-
-            } else {
-                // 不正なアクセス
-                msgEl.textContent = '無効な操作です。ホームに戻ります。';
-                setTimeout(() => { window.location.href = 'home.html'; }, 2000);
-            }
-
-            // キャンセルボタン
-            document.getElementById('cancelBtn').addEventListener('click', () => {
-                sessionStorage.removeItem('pwaInstallAction');
-                window.location.href = 'home.html';
-            });
+        // バックアップ画面への遷移
+        document.getElementById('backupBtn').addEventListener('click', () => {
+            window.location.href = 'backup.html';
         });
+
+        // ▼ PWAオプション画面への遷移を追加 ▼
+        // (ロジックは install.html 側で実行)
+        document.getElementById('pwaOptionsBtn').addEventListener('click', () => {
+            window.location.href = 'install.html';
+        });
+        // ▲ 追加終わり ▲
     </script>
+    <script src="app.js"></script>
 </body>
 </html>
