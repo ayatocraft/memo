@@ -3,49 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ホーム - メモアプリ(build 25.11.18)</title>
+    <title>ホーム - メモアプリ(build 25.11.18.3)</title>
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
-    
-    <style>
-        /* 念のため、style.css にこのスタイルがない場合用 */
-        .pwa-options-btn {
-            width: 100%;
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            margin-bottom: 10px;
-            box-sizing: border-box;
-            font-size: 0.9rem;
-            /* style.css の .install-btn や .uninstall-btn と被らない中間色 */
-            background-color: #6c757d; 
-            color: white;
-            text-align: left;
-        }
-        .pwa-options-btn:hover {
-            background-color: #5a6268;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
         <aside class="sidebar">
             <h2>Memo</h2>
             <button id="newMemoBtn">新しいメモを作成 +</button>
+
             <nav>
                 <h3>メモ一覧</h3>
                 <ul id="memoList"></ul>
+
                 <h3>アーカイブ</h3>
                 <ul id="archiveList"></ul>
             </nav>
 
             <div class="backup-section">
                 <hr>
-                
-                <button id="pwaOptionsBtn" class="pwa-options-btn">📱 PWAオプション</button>
                 <button id="backupBtn" class="backup-btn">💾 バックアップのオプション</button>
+
+                <!-- PWAインストールボタン追加 -->
+                <button id="installPwaBtn" class="install-btn">📲 PWA をインストール</button>
             </div>
         </aside>
 
@@ -65,13 +46,12 @@
             window.location.href = 'backup.html';
         });
 
-        // ▼ PWAオプション画面への遷移を追加 ▼
-        // (ロジックは install.html 側で実行)
-        document.getElementById('pwaOptionsBtn').addEventListener('click', () => {
+        // install.html への遷移
+        document.getElementById('installPwaBtn').addEventListener('click', () => {
             window.location.href = 'install.html';
         });
-        // ▲ 追加終わり ▲
     </script>
+
     <script src="app.js"></script>
 </body>
 </html>
