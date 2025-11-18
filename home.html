@@ -1,91 +1,50 @@
 <!DOCTYPE html>
-
 <html lang="ja">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>ホーム - メモアプリ(build 25.11.11)</title>
-
     <link rel="manifest" href="manifest.json">
-
     <link rel="stylesheet" href="style.css">
-
 </head>
-
 <body>
-
     <div class="container">
-
         <aside class="sidebar">
-
             <h2>Memo</h2>
-
             <button id="newMemoBtn">新しいメモを作成 +</button>
-
             <nav>
-
                 <h3>メモ一覧</h3>
-
                 <ul id="memoList"></ul>
-
                 <h3>アーカイブ</h3>
-
                 <ul id="archiveList"></ul>
-
             </nav>
 
-
-
             <div class="backup-section">
-
                 <hr>
-
                 <button id="backupBtn" class="backup-btn">💾 バックアップのオプション</button>
-
-            </div>
-
+                
+                <a href="install.html" id="pwaInstallLink" class="backup-btn">
+                    ⚙️ アプリのインストール/管理
+                </a>
+                </div>
         </aside>
 
-
-
         <main class="content">
-
             <div id="memoGrid" class="memo-grid"></div>
 
-
-
             <div id="welcomeMessage" class="welcome hidden">
-
                 <h1>ようこそ</h1>
-
                 <p>「新しいメモを作成」から最初のメモを作りましょう。</p>
-
             </div>
-
         </main>
-
     </div>
 
-
-
     <script>
-
         // バックアップ画面への遷移
-
         document.getElementById('backupBtn').addEventListener('click', () => {
-
             window.location.href = 'backup.html';
-
         });
-
     </script>
-
     <script src="app.js"></script>
-
 </body>
-
 </html>
