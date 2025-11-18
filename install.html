@@ -15,23 +15,18 @@
     <meta name="apple-mobile-web-app-title" content="PWA アシスタント">
     
     <style>
-        /* assistant-container の調整 */
+        /* (前回と同じスタイルのため省略) */
         .assistant-container {
             padding: 20px;
-            /* style.css のCSS変数を流用 */
             background-color: var(--color-bg-secondary); 
             border-radius: 8px;
-            max-width: 600px; /* メインコンテンツ内での最大幅を指定 */
-            margin: 0 auto; /* 中央寄せ */
+            max-width: 600px;
+            margin: 0 auto;
         }
-        
-        /* 動的に生成されるボタンのマージン調整 */
         .assistant-container .backup-btn {
             margin-top: 15px;
             width: 100%;
         }
-        
-        /* アンインストール手順のスタイル */
         .instructions {
             background-color: var(--color-bg);
             border: 1px solid var(--color-border);
@@ -40,41 +35,28 @@
             margin-top: 15px;
             text-align: left;
         }
-        .instructions p {
-            margin-bottom: 10px;
-        }
+        .instructions p { margin-bottom: 10px; }
         .instructions code {
             background-color: var(--color-bg-tertiary);
             padding: 2px 5px;
             border-radius: 3px;
         }
-
-        /* キャンセルボタンの色調整 (backup-btn のデフォルト色を上書き) */
         .cancel-btn {
             background-color: #6c757d;
             border-color: #6c757d;
         }
-        .cancel-btn:hover {
-            background-color: #5a6268;
-        }
-
-        /* インストールボタンの色調整 */
+        .cancel-btn:hover { background-color: #5a6268; }
         .install-btn {
-             /* backup-btn のデフォルト (青) ではなく、分かりやすく緑系に */
              background-color: #28a745; 
              border-color: #28a745;
         }
-        .install-btn:hover {
-            background-color: #218838;
-        }
+        .install-btn:hover { background-color: #218838; }
         .install-btn:disabled {
             background-color: #ccc;
             border-color: #ccc;
             cursor: not-allowed;
             color: #666;
         }
-
-        /* メッセージ欄 */
         #message {
             margin-top: 15px;
             font-weight: bold;
@@ -95,31 +77,26 @@
     </aside>
 
     <main class="content">
-
         <div class="assistant-container">
             <h1 id="assistantTitle" style="text-align: center;">PWA アシスタント</h1>
             <p id="assistantMessage" style="text-align: center;">状態を確認しています...</p>
-        
-            <div id="buttonContainer">
-                </div>
-        
+            <div id="buttonContainer"></div>
             <button id="cancelBtn" class="backup-btn cancel-btn" style="margin-top: 20px; width: 100%;">キャンセル (ホームに戻る)</button>
-        
             <p id="message" style="display:none; text-align: center;"></p>
         </div>
-
     </main>
 </div>
+
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // ... (DOM要素の取得は変更なし) ...
     const buttonContainer = document.getElementById('buttonContainer');
     const messageEl = document.getElementById('message');
     const titleEl = document.getElementById('assistantTitle');
     const msgEl = document.getElementById('assistantMessage');
     let installPromptEvent = null;
 
-    // ... (Service Worker 登録は変更なし) ...
+    // Service Worker 登録
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js')
         .then(() => console.log('Service Worker registered'))
@@ -127,9 +104,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // PWAインストール済みかチェック
-    const isPwaInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    // ▼▼▼ 修正箇所 ▼▼▼
+    // 「ブラウザモードで"ない"」場合をインストール済みと判定する
+    const isPwaInstalled = !window.matchMedia('(display-mode: browser)').matches || window.navigator.standalone;
+    // ▲▲▲ 修正ここまで ▲▲▲
 
-    // --- 関数定義 (ボタンクラスを変更) ---
+    // --- 関数定義 (showUninstallUI, showInstallUI) ---
+    // (中身は前回と同一のため、変更なし)
 
     function showUninstallUI() {
         titleEl.textContent = 'PWAをアンインストール';
@@ -137,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
         buttonContainer.innerHTML = '';
 
         const infoDiv = document.createElement('div');
-        infoDiv.className = 'instructions'; // <style> で定義したクラス
+        infoDiv.className = 'instructions'; 
         infoDiv.innerHTML = `
             <p><strong>一般的なアンインストール手順:</strong></p>
             <p><strong>PC (Chrome) の場合:</strong><br>
@@ -151,15 +132,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const uninstallBtn = document.createElement('button');
         uninstallBtn.textContent = '手順を理解しました (ホームに戻る)';
-        
-        // ▼▼▼ クラス名をモダンなUIのものに変更 ▼▼▼
-        uninstallBtn.className = 'backup-btn'; // style.css のボタンスタイル
-        // ▲▲▲ 変更ここまで ▲▲▲
-
+        uninstallBtn.className = 'backup-btn'; 
         uninstallBtn.addEventListener('click', () => window.location.href='home.html');
         buttonContainer.appendChild(uninstallBtn);
 
-        // アンインストール画面では、重複する「キャンセル」ボタンは非表示にする
         const originalCancelBtn = document.getElementById('cancelBtn');
         if (originalCancelBtn) {
             originalCancelBtn.style.display = 'none';
@@ -173,14 +149,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const installBtn = document.createElement('button');
         installBtn.id = 'installActionBtn';
         installBtn.textContent = 'インストール';
-        
-        // ▼▼▼ クラス名をモダンなUIのものに変更 ▼▼▼
-        // 'install-btn' は <style> で緑色に定義
         installBtn.className = 'backup-btn install-btn'; 
-        // ▲▲▲ 変更ここまで ▲▲▲
-        
-        installBtn.disabled = true; // プロンプト準備中は押せない
-
+        installBtn.disabled = true; 
         msgEl.textContent = 'インストールの準備をしています... (プロンプト待機中)';
 
         installBtn.addEventListener('click', async () => {
@@ -192,7 +162,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const { outcome } = await installPromptEvent.userChoice;
             if (outcome === 'accepted') {
                 messageEl.textContent = 'インストールが完了しました。ホームに戻ります。';
-                // インストール完了したらキャンセルボタンも非表示
                 const originalCancelBtn = document.getElementById('cancelBtn');
                 if (originalCancelBtn) originalCancelBtn.style.display = 'none';
                 
@@ -230,7 +199,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (installBtn && installBtn.disabled) {
                     msgEl.textContent = 'PWAインストールに対応していないか、過去にインストールを拒否した可能性があります。';
                     installBtn.textContent = '利用不可';
-                    // 'install-btn' クラスの :disabled スタイルが適用される
                 }
             }
         }, 3000);
