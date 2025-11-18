@@ -1,149 +1,191 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PWA インストールアシスタント</title>
-    <link rel="stylesheet" href="style.css"> 
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PWA インストールアシスタント</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* --- プログレスバー --- */
+#progressContainer {
+    width: 100%;
+    background-color: #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 16px 0;
+    height: 12px;
+}
+
+#progressBar {
+    width: 0%;
+    height: 100%;
+    background-color: #4CAF50;
+    transition: width 0.5s;
+}
+
+/* --- ボタンモダン化 --- */
+.pwa-button {
+    padding: 12px 20px;
+    margin: 8px 0;
+    font-size: 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+    color: #fff;
+}
+
+.install-btn { background-color: #28a745; }
+.install-btn:disabled { background-color: #94d3a2; cursor: not-allowed; }
+
+.uninstall-btn { background-color: #dc3545; }
+.cancel-btn { background-color: #6c757d; }
+
+.pwa-button:hover:not(:disabled) { filter: brightness(110%); }
+</style>
 </head>
 <body class="install-page">
 
-    <div class="assistant-container">
-        <h1 id="assistantTitle">PWA アシスタント</h1>
-        <p id="assistantMessage">状態を確認しています...</p>
-    
-        <div id="buttonContainer"></div>
-    
-        <button id="cancelBtn" class="pwa-button cancel-btn">キャンセル (ホームに戻る)</button>
-    
-        <p id="message" style="display:none;"></p>
-    </div>
+<div class="assistant-container">
+    <h1 id="assistantTitle">PWA アシスタント</h1>
+    <p id="assistantMessage">状態を確認しています...</p>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const buttonContainer = document.getElementById('buttonContainer');
-            const messageEl = document.getElementById('message');
-            const titleEl = document.getElementById('assistantTitle');
-            const msgEl = document.getElementById('assistantMessage');
-            
-            let installPromptEvent = null; // インストールプロンプトのイベント
+    <div id="progressContainer"><div id="progressBar"></div></div>
 
-            // PWAがスタンドアロンモード（インストール済み）かチェック
-            const isPwaInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    <div id="buttonContainer"></div>
 
-            // --- 関数定義 ---
+    <button id="cancelBtn" class="pwa-button cancel-btn">キャンセル (ホームに戻る)</button>
 
-            // 1. アンインストール画面を表示する関数
-            function showUninstallUI() {
-                titleEl.textContent = 'PWAをアンインストール';
-                msgEl.innerHTML = 'アプリはインストール済みです。<br>アンインストールは、ブラウザまたはOSの設定から手動で行う必要があります。';
-                
-                const infoDiv = document.createElement('div');
-                infoDiv.className = 'instructions';
-                infoDiv.innerHTML = `
-                    <p><strong>一般的なアンインストール手順:</strong></p>
-                    <p><strong>PC (Chrome) の場合:</strong><br>
-                    1. アドレスバーに <code>chrome://apps</code> と入力<br>
-                    2. 「メモアプリ」を右クリック<br>
-                    3. 「Chrome から削除」を選択</p>
-                    <p><strong>スマートフォンの場合:</strong><br>
-                    ホーム画面のアプリアイコンを長押しし、「アンインストール」または「アプリを削除」を選択してください。</p>
-                `;
-                buttonContainer.appendChild(infoDiv);
+    <p id="message" style="display:none;"></p>
+</div>
 
-                const uninstallBtn = document.createElement('button');
-                uninstallBtn.textContent = '手順を理解しました (ホームに戻る)';
-                uninstallBtn.className = 'pwa-button uninstall-btn'; // 赤色
-                
-                uninstallBtn.addEventListener('click', () => {
-                    window.location.href = 'home.html';
-                });
-                buttonContainer.appendChild(uninstallBtn);
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const buttonContainer = document.getElementById('buttonContainer');
+    const messageEl = document.getElementById('message');
+    const titleEl = document.getElementById('assistantTitle');
+    const msgEl = document.getElementById('assistantMessage');
+    const progressBar = document.getElementById('progressBar');
+    let installPromptEvent = null;
+
+    const isPwaInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+    function updateProgress(percent) {
+        progressBar.style.width = percent + '%';
+    }
+
+    // --- アンインストールUI ---
+    function showUninstallUI() {
+        titleEl.textContent = 'PWAをアンインストール';
+        msgEl.innerHTML = 'アプリはインストール済みです。<br>アンインストールはブラウザまたはOSの設定から行ってください。';
+        buttonContainer.innerHTML = '';
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'instructions';
+        infoDiv.innerHTML = `
+            <p><strong>アンインストール手順:</strong></p>
+            <p><strong>PC (Chrome):</strong> chrome://apps → アプリ右クリック → 「削除」</p>
+            <p><strong>スマホ:</strong> ホーム画面のアイコン長押し → アンインストール</p>
+        `;
+        buttonContainer.appendChild(infoDiv);
+
+        const uninstallBtn = document.createElement('button');
+        uninstallBtn.textContent = '手順を理解しました (ホームに戻る)';
+        uninstallBtn.className = 'pwa-button uninstall-btn';
+        uninstallBtn.addEventListener('click', () => window.location.href = 'home.html');
+        buttonContainer.appendChild(uninstallBtn);
+
+        updateProgress(100);
+    }
+
+    // --- インストールUI ---
+    function showInstallUI() {
+        titleEl.textContent = 'PWAをインストール';
+        buttonContainer.innerHTML = '';
+
+        const installBtn = document.createElement('button');
+        installBtn.id = 'installActionBtn';
+        installBtn.textContent = 'インストール';
+        installBtn.className = 'pwa-button install-btn';
+        installBtn.disabled = false; // ここを改善：押せるように
+
+        msgEl.textContent = installPromptEvent ? 
+            '準備ができました。下のボタンを押してインストールしてください。' : 
+            'インストールの準備をしています...';
+
+        installBtn.addEventListener('click', async () => {
+            if (!installPromptEvent) {
+                messageEl.textContent = 'ブラウザがPWAインストールに対応していない可能性があります。';
+                messageEl.style.display = 'block';
+                return;
             }
 
-            // 2. インストール画面を表示する関数
-            function showInstallUI() {
-                titleEl.textContent = 'PWAをインストール';
-                
-                const installBtn = document.createElement('button');
-                installBtn.id = 'installActionBtn';
-                installBtn.textContent = 'インストール';
-                installBtn.className = 'pwa-button install-btn'; // 緑色
-                
-                // プロンプトがまだ来ていない場合は無効化
-                installBtn.disabled = !installPromptEvent; 
-                msgEl.textContent = installPromptEvent 
-                    ? '準備ができました。下のボタンを押してインストールしてください。'
-                    : 'インストールの準備をしています... (プロンプト待機中)';
+            installBtn.disabled = true;
+            installPromptEvent.prompt();
 
-                installBtn.addEventListener('click', async () => {
-                    if (!installPromptEvent) return;
-                    
-                    installBtn.disabled = true;
-                    installPromptEvent.prompt(); // インストールダイアログを表示
-                    
-                    const { outcome } = await installPromptEvent.userChoice;
-                    
-                    if (outcome === 'accepted') {
-                        messageEl.textContent = 'インストールが完了しました。ホームに戻ります。';
-                        setTimeout(() => { window.location.href = 'home.html'; }, 2000);
-                    } else {
-                        messageEl.textContent = 'インストールがキャンセルされました。';
-                        installBtn.disabled = false;
-                    }
-                    installPromptEvent = null; // プロンプトは一度しか使えない
-                    messageEl.style.display = 'block';
-                });
-                buttonContainer.appendChild(installBtn);
-            }
-
-            // --- メイン実行ロジック ---
-
-            // A. 既にインストール済みの場合
-            if (isPwaInstalled) {
-                showUninstallUI();
-            
-            // B. まだインストールされていない場合
+            const { outcome } = await installPromptEvent.userChoice;
+            if (outcome === 'accepted') {
+                messageEl.textContent = 'インストール完了。ホームに戻ります。';
+                setTimeout(() => window.location.href='home.html', 2000);
             } else {
-                
-                // B-1. インストールプロンプトを待機
-                window.addEventListener('beforeinstallprompt', (e) => {
-                    e.preventDefault(); // デフォルトのプロンプトを抑制
-                    installPromptEvent = e; // イベントを保持
-                    
-                    // UIがまだ構築されていなければ構築する
-                    if (!document.getElementById('installActionBtn')) {
-                        buttonContainer.innerHTML = ''; // 「状態を確認...」をクリア
-                        showInstallUI();
-                    } else {
-                        // 既に「準備中」のUIが表示されていれば、ボタンを有効化
-                        document.getElementById('installActionBtn').disabled = false;
-                        msgEl.textContent = '準備ができました。下のボタンを押してインストールしてください。';
-                    }
-                });
-
-                // B-2. (プロンプトが来る前に) 先に「準備中」のインストールUIを表示
-                showInstallUI();
-
-                // B-3. (補足) 一定時間待ってもプロンプトが来ない場合
-                // (例: 既にインストールを拒否済み、非対応ブラウザなど)
-                setTimeout(() => {
-                    if (!installPromptEvent && !isPwaInstalled) {
-                        // ボタンがまだ無効 (disabled) なら
-                        const installBtn = document.getElementById('installActionBtn');
-                        if (installBtn && installBtn.disabled) {
-                            msgEl.textContent = 'PWAインストールに対応していないか、過去にインストールを拒否している可能性があります。';
-                            installBtn.textContent = '利用不可';
-                        }
-                    }
-                }, 3000); // 3秒待機
+                messageEl.textContent = 'インストールがキャンセルされました。';
+                installBtn.disabled = false;
             }
-
-            // キャンセルボタン（共通）
-            document.getElementById('cancelBtn').addEventListener('click', () => {
-                window.location.href = 'home.html';
-            });
+            installPromptEvent = null;
+            messageEl.style.display = 'block';
+            updateProgress(100);
         });
-    </script>
+        buttonContainer.appendChild(installBtn);
+
+        updateProgress(50); // 50% 進捗表示
+    }
+
+    // --- メイン ---
+    if (isPwaInstalled) {
+        showUninstallUI();
+    } else {
+        // beforeinstallprompt イベント
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            installPromptEvent = e;
+            const installBtn = document.getElementById('installActionBtn');
+            if (installBtn) {
+                installBtn.disabled = false;
+                msgEl.textContent = '準備ができました。下のボタンを押してインストールしてください。';
+            } else {
+                buttonContainer.innerHTML = '';
+                showInstallUI();
+            }
+        });
+
+        showInstallUI();
+
+        setTimeout(() => {
+            if (!installPromptEvent && !isPwaInstalled) {
+                const installBtn = document.getElementById('installActionBtn');
+                if (installBtn && installBtn.disabled) {
+                    msgEl.textContent = 'PWAインストールに対応していないか、過去に拒否した可能性があります。';
+                    installBtn.textContent = '利用不可';
+                }
+            }
+        }, 3000);
+    }
+
+    // キャンセルボタン
+    document.getElementById('cancelBtn').addEventListener('click', () => window.location.href = 'home.html');
+
+    // プログレスバーの疑似アニメーション（状態確認中）
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        if (progress < 30 && !isPwaInstalled) {
+            progress += 1;
+            updateProgress(progress);
+        } else {
+            clearInterval(progressInterval);
+        }
+    }, 50);
+});
+</script>
+
 </body>
 </html>
