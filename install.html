@@ -4,38 +4,122 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PWA インストールアシスタント</title>
-    
-    <link rel="stylesheet" href="style.css">
 
+    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ayatocraft/memo@main/style.css">
+
     <link rel="manifest" href="manifest.json">
 
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="PWA アシスタント">
+    
+    <style>
+        /* assistant-container の調整 */
+        .assistant-container {
+            padding: 20px;
+            /* style.css のCSS変数を流用 */
+            background-color: var(--color-bg-secondary); 
+            border-radius: 8px;
+            max-width: 600px; /* メインコンテンツ内での最大幅を指定 */
+            margin: 0 auto; /* 中央寄せ */
+        }
+        
+        /* 動的に生成されるボタンのマージン調整 */
+        .assistant-container .backup-btn {
+            margin-top: 15px;
+            width: 100%;
+        }
+        
+        /* アンインストール手順のスタイル */
+        .instructions {
+            background-color: var(--color-bg);
+            border: 1px solid var(--color-border);
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            text-align: left;
+        }
+        .instructions p {
+            margin-bottom: 10px;
+        }
+        .instructions code {
+            background-color: var(--color-bg-tertiary);
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+        /* キャンセルボタンの色調整 (backup-btn のデフォルト色を上書き) */
+        .cancel-btn {
+            background-color: #6c757d;
+            border-color: #6c757d;
+        }
+        .cancel-btn:hover {
+            background-color: #5a6268;
+        }
+
+        /* インストールボタンの色調整 */
+        .install-btn {
+             /* backup-btn のデフォルト (青) ではなく、分かりやすく緑系に */
+             background-color: #28a745; 
+             border-color: #28a745;
+        }
+        .install-btn:hover {
+            background-color: #218838;
+        }
+        .install-btn:disabled {
+            background-color: #ccc;
+            border-color: #ccc;
+            cursor: not-allowed;
+            color: #666;
+        }
+
+        /* メッセージ欄 */
+        #message {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+    </style>
 </head>
-<body class="install-page">
+<body>
 
-<div class="assistant-container">
-    <h1 id="assistantTitle">PWA アシスタント</h1>
-    <p id="assistantMessage">状態を確認しています...</p>
+<div class="container">
 
-    <div id="buttonContainer"></div>
+    <aside class="sidebar">
+        <h2>Memo</h2>
+        <nav>
+            <a href="home.html" class="backup-btn" style="text-decoration: none; margin-top: 20px; display: block; text-align: center;">
+                🏠 ホームに戻る
+            </a>
+        </nav>
+    </aside>
 
-    <button id="cancelBtn" class="pwa-button cancel-btn">キャンセル (ホームに戻る)</button>
+    <main class="content">
 
-    <p id="message" style="display:none;"></p>
+        <div class="assistant-container">
+            <h1 id="assistantTitle" style="text-align: center;">PWA アシスタント</h1>
+            <p id="assistantMessage" style="text-align: center;">状態を確認しています...</p>
+        
+            <div id="buttonContainer">
+                </div>
+        
+            <button id="cancelBtn" class="backup-btn cancel-btn" style="margin-top: 20px; width: 100%;">キャンセル (ホームに戻る)</button>
+        
+            <p id="message" style="display:none; text-align: center;"></p>
+        </div>
+
+    </main>
 </div>
-
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // ... (DOM要素の取得は変更なし) ...
     const buttonContainer = document.getElementById('buttonContainer');
     const messageEl = document.getElementById('message');
     const titleEl = document.getElementById('assistantTitle');
     const msgEl = document.getElementById('assistantMessage');
     let installPromptEvent = null;
 
-    // Service Worker 登録
+    // ... (Service Worker 登録は変更なし) ...
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('sw.js')
         .then(() => console.log('Service Worker registered'))
@@ -45,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // PWAインストール済みかチェック
     const isPwaInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
-    // --- 関数定義 ---
+    // --- 関数定義 (ボタンクラスを変更) ---
 
     function showUninstallUI() {
         titleEl.textContent = 'PWAをアンインストール';
@@ -53,23 +137,33 @@ document.addEventListener('DOMContentLoaded', () => {
         buttonContainer.innerHTML = '';
 
         const infoDiv = document.createElement('div');
-        infoDiv.className = 'instructions';
+        infoDiv.className = 'instructions'; // <style> で定義したクラス
         infoDiv.innerHTML = `
             <p><strong>一般的なアンインストール手順:</strong></p>
             <p><strong>PC (Chrome) の場合:</strong><br>
             1. アドレスバーに <code>chrome://apps</code> と入力<br>
             2. 「メモアプリ」を右クリック<br>
             3. 「Chrome から削除」を選択</p>
-            <p><strong>スマートフォンの場合:</strong><br>
+            <p><strong>スマートフォンの場合:</strong><B<br>
             ホーム画面のアプリアイコンを長押しし、「アンインストール」または「アプリを削除」を選択してください。</p>
         `;
         buttonContainer.appendChild(infoDiv);
 
         const uninstallBtn = document.createElement('button');
         uninstallBtn.textContent = '手順を理解しました (ホームに戻る)';
-        uninstallBtn.className = 'pwa-button uninstall-btn';
+        
+        // ▼▼▼ クラス名をモダンなUIのものに変更 ▼▼▼
+        uninstallBtn.className = 'backup-btn'; // style.css のボタンスタイル
+        // ▲▲▲ 変更ここまで ▲▲▲
+
         uninstallBtn.addEventListener('click', () => window.location.href='home.html');
         buttonContainer.appendChild(uninstallBtn);
+
+        // アンインストール画面では、重複する「キャンセル」ボタンは非表示にする
+        const originalCancelBtn = document.getElementById('cancelBtn');
+        if (originalCancelBtn) {
+            originalCancelBtn.style.display = 'none';
+        }
     }
 
     function showInstallUI() {
@@ -79,7 +173,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const installBtn = document.createElement('button');
         installBtn.id = 'installActionBtn';
         installBtn.textContent = 'インストール';
-        installBtn.className = 'pwa-button install-btn';
+        
+        // ▼▼▼ クラス名をモダンなUIのものに変更 ▼▼▼
+        // 'install-btn' は <style> で緑色に定義
+        installBtn.className = 'backup-btn install-btn'; 
+        // ▲▲▲ 変更ここまで ▲▲▲
+        
         installBtn.disabled = true; // プロンプト準備中は押せない
 
         msgEl.textContent = 'インストールの準備をしています... (プロンプト待機中)';
@@ -93,6 +192,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const { outcome } = await installPromptEvent.userChoice;
             if (outcome === 'accepted') {
                 messageEl.textContent = 'インストールが完了しました。ホームに戻ります。';
+                // インストール完了したらキャンセルボタンも非表示
+                const originalCancelBtn = document.getElementById('cancelBtn');
+                if (originalCancelBtn) originalCancelBtn.style.display = 'none';
+                
                 setTimeout(() => window.location.href='home.html', 2000);
             } else {
                 messageEl.textContent = 'インストールがキャンセルされました。';
@@ -105,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
         buttonContainer.appendChild(installBtn);
     }
 
-    // --- メイン処理 ---
+    // --- メイン処理 (変更なし) ---
     if (isPwaInstalled) {
         showUninstallUI();
     } else {
@@ -127,12 +230,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (installBtn && installBtn.disabled) {
                     msgEl.textContent = 'PWAインストールに対応していないか、過去にインストールを拒否した可能性があります。';
                     installBtn.textContent = '利用不可';
+                    // 'install-btn' クラスの :disabled スタイルが適用される
                 }
             }
         }, 3000);
     }
 
-    // キャンセルボタン
+    // キャンセルボタンのイベントリスナー (変更なし)
     document.getElementById('cancelBtn').addEventListener('click', () => window.location.href='home.html');
 });
 </script>
