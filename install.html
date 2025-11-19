@@ -197,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!installPromptEvent && !isPwaInstalled) {
                 const installBtn = document.getElementById('installActionBtn');
                 if (installBtn && installBtn.disabled) {
-                    msgEl.textContent = 'PWAインストールに対応していないか、過去にインストールを拒否した可能性があります。';
+                    msgEl.textContent = 'PWAインストールに対応していないか、すでにインストールされている可能性があります。アプリ一覧をご覧ください。';
                     installBtn.textContent = '利用不可';
                 }
             }
