@@ -6,7 +6,7 @@
 
 <style>
 body{
-  font-family: -apple-system, sans-serif;
+  font-family:sans-serif;
   background:#0f172a;
   color:white;
   text-align:center;
@@ -14,12 +14,11 @@ body{
 }
 
 .card{
-  background:#111827;
   width:320px;
   margin:auto;
+  background:#111827;
   padding:30px;
   border-radius:16px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.4);
 }
 
 button{
@@ -30,33 +29,43 @@ button{
   color:white;
   border:none;
   border-radius:10px;
-  cursor:pointer;
-}
-
-button:active{
-  transform:scale(0.98);
-}
-
-#status{
-  margin-top:20px;
-  font-size:14px;
-  color:#cbd5e1;
-  min-height:20px;
 }
 
 .spinner{
-  margin:15px auto;
   width:24px;
   height:24px;
   border:3px solid #334155;
   border-top:3px solid #3b82f6;
   border-radius:50%;
+  margin:15px auto;
   animation:spin 1s linear infinite;
   display:none;
 }
 
 @keyframes spin{
-  to{ transform:rotate(360deg); }
+  to{transform:rotate(360deg);}
+}
+
+#bar{
+  width:100%;
+  height:8px;
+  background:#1f2937;
+  border-radius:10px;
+  margin-top:15px;
+  overflow:hidden;
+}
+
+#progress{
+  width:0%;
+  height:100%;
+  background:#22c55e;
+  transition:0.3s;
+}
+
+#status{
+  margin-top:12px;
+  font-size:14px;
+  color:#cbd5e1;
 }
 </style>
 </head>
@@ -65,13 +74,16 @@ button:active{
 
 <div class="card">
   <h2>アプリ認証</h2>
-  <p>続行するには認証してください</p>
 
-  <button id="authBtn">認証する</button>
+  <button onclick="startAuth()">認証する</button>
 
   <div class="spinner" id="spinner"></div>
 
-  <div id="status"></div>
+  <div id="status">待機中</div>
+
+  <div id="bar">
+    <div id="progress"></div>
+  </div>
 </div>
 
 <script src="auth.js"></script>
