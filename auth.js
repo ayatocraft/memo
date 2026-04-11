@@ -1,10 +1,9 @@
-// ===== UI要素 =====
-const btn = document.querySelector("button");
+const btn = document.getElementById("authBtn");
 const spinner = document.getElementById("spinner");
 const status = document.getElementById("status");
 const bar = document.getElementById("progress");
+const check = document.getElementById("check");
 
-// ===== ユーティリティ =====
 function enc(str){
   return new TextEncoder().encode(str);
 }
@@ -15,51 +14,71 @@ function setProgress(p){
 
 function setState(text, p){
   status.textContent = text;
-  setProgress(p);
+  setProgress(p ?? 0);
 }
 
-// ===== メイン認証フロー =====
+function showCheck(){
+  check.style.display = "block";
+  check.style.transform = "scale(1.2)";
+
+  setTimeout(()=>{
+    check.style.transform = "scale(1)";
+  }, 200);
+}
+
+function resetUI(){
+  btn.disabled = false;
+  spinner.style.display = "none";
+}
+
 async function startAuth(){
 
   if (!btn) return;
 
   btn.disabled = true;
   spinner.style.display = "block";
+  check.style.display = "none";
 
   try {
-    // -------------------------
-    // ① ログイン試行
-    // -------------------------
-    setState("認証を開始しています...", 10);
 
-    await navigator.credentials.get({
+    // ======================
+    // ① ログイン試行
+    // ======================
+    setState("認証中...", 10);
+
+    const loginPromise = navigator.credentials.get({
       publicKey: {
         challenge: enc("login"),
         userVerification: "required"
       }
     });
 
+    const timeout = new Promise((_, reject)=>{
+      setTimeout(()=>reject("timeout"), 8000);
+    });
+
+    await Promise.race([loginPromise, timeout]);
+
     // 成功
-    setState("認証成功。ログイン中...", 80);
+    setState("認証成功", 70);
+    showCheck();
 
     sessionStorage.setItem("auth","true");
 
     setTimeout(()=>{
-      setState("完了", 100);
+      setState("遷移中...", 100);
       location.href = "home.html";
     }, 700);
 
   } catch (e) {
 
-    console.log("get失敗 → 登録へ", e);
-
-    setState("初回ユーザー検出。登録に切り替えます...", 30);
+    console.log("login失敗 → 登録へ", e);
 
     try {
-      // -------------------------
-      // ② 登録フロー
-      // -------------------------
-      await navigator.credentials.create({
+
+      setState("初回ユーザー検出", 30);
+
+      const regPromise = navigator.credentials.create({
         publicKey: {
           challenge: enc("register"),
           rp: { name: "MyApp" },
@@ -68,38 +87,42 @@ async function startAuth(){
             name: "user",
             displayName: "User"
           },
-          pubKeyCredParams: [
-            { type: "public-key", alg: -7 }
-          ],
+          pubKeyCredParams: [{ alg: -7, type: "public-key" }],
           authenticatorSelection: {
             userVerification: "required"
           }
         }
       });
 
-      setState("登録完了。ログイン中...", 90);
+      const timeout2 = new Promise((_, reject)=>{
+        setTimeout(()=>reject("timeout"), 10000);
+      });
+
+      await Promise.race([regPromise, timeout2]);
+
+      setState("登録完了", 80);
+      showCheck();
 
       sessionStorage.setItem("auth","true");
 
       setTimeout(()=>{
-        setProgress(100);
         location.href = "home.html";
       }, 700);
 
     } catch (err) {
 
-      console.log("create失敗", err);
+      console.log("register失敗", err);
 
-      setState("エラーが発生しました。再試行してください", 0);
-
-      // ★ 文鎮化防止（重要）
-      btn.disabled = false;
-      spinner.style.display = "none";
+      // ======================
+      // ★絶対復帰保証
+      // ======================
+      setState("エラー：再試行してください", 0);
+      resetUI();
     }
   }
 }
 
-// ===== ボタン接続 =====
-document.addEventListener("DOMContentLoaded", () => {
-  if (btn) btn.onclick = startAuth;
+// 安全起動
+document.addEventListener("DOMContentLoaded", ()=>{
+  if (btn) btn.addEventListener("click", startAuth);
 });
