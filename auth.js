@@ -1,21 +1,72 @@
-document.getElementById("authBtn").onclick = async () => {
+const msg = document.getElementById("msg");
+
+function enc(str){
+  return new TextEncoder().encode(str);
+}
+
+// ===== パスキー認証 =====
+async function doAuth() {
   try {
-    const credential = await navigator.credentials.get({
+    await navigator.credentials.get({
       publicKey: {
-        challenge: new Uint8Array([1,2,3,4]),
-        timeout: 60000,
-        userVerification: "required"
+        challenge: enc("login"),
+        userVerification: "required",
+        timeout: 60000
       }
     });
 
-    // 認証成功フラグ
-    localStorage.setItem("auth", "true");
+    // 👉 セッション保存（ここが重要）
+    sessionStorage.setItem("auth", "true");
 
-    // homeへ
-    window.location.href = "home.html";
+    location.href = "home.html";
 
   } catch (e) {
-    alert("認証に失敗しました");
     console.log(e);
+    msg.textContent = "認証に失敗しました";
   }
+}
+
+// ===== 初回登録（簡易）=====
+async function register() {
+  try {
+    await navigator.credentials.create({
+      publicKey: {
+        challenge: enc("register"),
+        rp: { name: "MyApp" },
+        user: {
+          id: enc("user1"),
+          name: "user",
+          displayName: "User"
+        },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+        authenticatorSelection: {
+          userVerification: "required"
+        }
+      }
+    });
+
+    return true;
+
+  } catch (e) {
+    console.log(e);
+    return false;
+  }
+}
+
+// ===== ボタン =====
+document.getElementById("authBtn").onclick = async () => {
+
+  msg.textContent = "認証中...";
+
+  // 初回登録チェック
+  if (!localStorage.getItem("passkey")) {
+    const ok = await register();
+    if (!ok) {
+      msg.textContent = "登録失敗";
+      return;
+    }
+    localStorage.setItem("passkey", "true");
+  }
+
+  await doAuth();
 };
