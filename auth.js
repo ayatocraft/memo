@@ -1,12 +1,21 @@
-const msg = document.getElementById("msg");
+const btn = document.getElementById("authBtn");
+const status = document.getElementById("status");
+const spinner = document.getElementById("spinner");
 
 function enc(str){
   return new TextEncoder().encode(str);
 }
 
-// ===== パスキー認証 =====
-async function doAuth() {
+async function doAuth(){
+
+  // UI切替
+  btn.disabled = true;
+  spinner.style.display = "block";
+  status.textContent = "認証を開始しています...";
+
   try {
+    status.textContent = "デバイス認証を実行中...";
+
     await navigator.credentials.get({
       publicKey: {
         challenge: enc("login"),
@@ -15,58 +24,23 @@ async function doAuth() {
       }
     });
 
-    // 👉 セッション保存（ここが重要）
-    sessionStorage.setItem("auth", "true");
+    status.textContent = "認証成功。アプリを準備しています...";
 
-    location.href = "home.html";
+    sessionStorage.setItem("auth","true");
 
-  } catch (e) {
+    // 少し“間”を作る（アプリ感）
+    setTimeout(()=>{
+      window.location.href = "home.html";
+    }, 1200);
+
+  } catch(e){
     console.log(e);
-    msg.textContent = "認証に失敗しました";
+
+    spinner.style.display = "none";
+    btn.disabled = false;
+
+    status.textContent = "認証に失敗しました。もう一度お試しください。";
   }
 }
 
-// ===== 初回登録（簡易）=====
-async function register() {
-  try {
-    await navigator.credentials.create({
-      publicKey: {
-        challenge: enc("register"),
-        rp: { name: "MyApp" },
-        user: {
-          id: enc("user1"),
-          name: "user",
-          displayName: "User"
-        },
-        pubKeyCredParams: [{ type: "public-key", alg: -7 }],
-        authenticatorSelection: {
-          userVerification: "required"
-        }
-      }
-    });
-
-    return true;
-
-  } catch (e) {
-    console.log(e);
-    return false;
-  }
-}
-
-// ===== ボタン =====
-document.getElementById("authBtn").onclick = async () => {
-
-  msg.textContent = "認証中...";
-
-  // 初回登録チェック
-  if (!localStorage.getItem("passkey")) {
-    const ok = await register();
-    if (!ok) {
-      msg.textContent = "登録失敗";
-      return;
-    }
-    localStorage.setItem("passkey", "true");
-  }
-
-  await doAuth();
-};
+btn.onclick = doAuth;
