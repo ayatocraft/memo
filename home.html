@@ -41,6 +41,10 @@
     </div>
 
     <script>
+        if (localStorage.getItem("auth") !== "true") {
+  window.location.href = "index.html";
+}
+
         // バックアップ画面への遷移
         document.getElementById('backupBtn').addEventListener('click', () => {
             window.location.href = 'backup.html';
