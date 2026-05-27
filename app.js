@@ -156,7 +156,7 @@ function initMemoPage() {
         }
     }
 
-    homeBtn.addEventListener('click', () => { window.location.href = 'home.html'; });
+    homeBtn.addEventListener('click', () => { window.location.href = 'index.html'; });
 
     addLinkBtn.addEventListener('click', () => {
         const text = prompt("リンクとして表示するテキストを入力してください:", "");
